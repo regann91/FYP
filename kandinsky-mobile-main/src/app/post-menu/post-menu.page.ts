@@ -128,7 +128,13 @@ export class PostMenuPage implements OnInit {
           role: 'cancel'
         },
         {
-          text: 'All Data',
+          text: 'Select Specific Videos',
+          handler: () => {
+            this.showVideoSelectionDialog();
+          }
+        },
+        {
+          text: 'All Data Combined',
           handler: () => {
             this.performExport('all');
           }
@@ -144,6 +150,118 @@ export class PostMenuPage implements OnInit {
 
     await alert.present();
   }
+
+  /**
+   * Shows dialog to select specific videos for export
+   */
+  async showVideoSelectionDialog() {
+    if (!this.posts || this.posts.length === 0) {
+      await this.showErrorToast('No posts available for export.');
+      return;
+    }
+
+    // Create checkbox inputs for each post
+    const inputs = this.posts.map(post => ({
+      name: post.id,
+      type: 'checkbox' as const,
+      label: `${post.content} (by ${post.authorName})`,
+      value: post.id,
+      checked: false
+    }));
+
+    const alert = await this.alertController.create({
+      header: 'Select Videos to Export',
+      message: 'Choose which videos you want to export comments from:',
+      inputs: inputs,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Select All',
+          handler: () => {
+            // Close this dialog and select all
+            this.performExport('all');
+            return false; // Keep dialog open
+          }
+        },
+        {
+          text: 'Export Selected',
+          handler: (selectedIds) => {
+            if (!selectedIds || selectedIds.length === 0) {
+              this.showErrorToast('Please select at least one video to export.');
+              return false; // Keep dialog open
+            }
+            this.performSelectedExport(selectedIds);
+            return true; // Close dialog
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  /**
+   * Exports data for selected video IDs only
+   */
+  private async performSelectedExport(selectedIds: string[]) {
+    const loading = await this.loadingController.create({
+      message: 'Preparing export for selected videos...',
+      spinner: 'crescent'
+    });
+
+    await loading.present();
+
+    try {
+      const selectedPosts = this.posts.filter(post => selectedIds.includes(post.id));
+      const filename = `selected_videos_${this.getDateString()}`;
+      
+      // Export each video separately
+      for (const post of selectedPosts) {
+        await this.exportSingleVideo(post, `${filename}_${post.id}`);
+      }
+
+      await this.showSuccessToast(`Exported ${selectedPosts.length} videos as separate CSV files`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      await this.showErrorToast('Export failed. Please try again.');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  /**
+   * Exports a single video's data (post + comments)
+   */
+  private async exportSingleVideo(post: SocialPost, filename: string) {
+  try {
+    console.log(`Exporting single video: ${post.id}, platform: ${post.platform}`);
+    
+    // Get comments for this specific post
+    const postComments = await this.getCommentsForPost(post.id, post.platform);
+    console.log(`Retrieved ${postComments.length} comments for video ${post.id}`);
+    
+    // Convert post to CSV
+    const postCSV = this.convertCurrentPostsToCSV([post]);
+    
+    // Convert comments to CSV
+    const commentsCSV = postComments.length > 0 ? 
+      this.convertCurrentCommentsToCSV(postComments) : 
+      'No comments available for this video';
+
+    console.log(`Comments CSV preview:`, commentsCSV.substring(0, 200));
+
+    // Download both files
+    this.downloadCSVFile(postCSV, `${filename}_post.csv`);
+    this.downloadCSVFile(commentsCSV, `${filename}_comments.csv`);
+
+  } catch (error) {
+    console.warn(`Failed to export video ${post.id}:`, error);
+    throw error;
+  }
+}
 
   /**
    * Performs the actual export operation
@@ -223,15 +341,21 @@ export class PostMenuPage implements OnInit {
   private async getCommentsForPost(postId: string, platform: string): Promise<any[]> {
   console.log(`Getting comments for post: ${postId}, platform: ${platform}`);
   
-  const storeName = platform === 'YOUTUBE' ? 'youtube-comments' : `${platform.toLowerCase()}-comments`;
+  // Handle different platform name formats
+  let storeName: string;
+  if (platform.toLowerCase().includes('youtube')) {
+    storeName = 'youtube-comments';
+  } else {
+    storeName = `${platform.toLowerCase()}-comments`;
+  }
+  
   console.log(`Using storage name: ${storeName}`);
   
   const commentsStorage = this.storageServiceFactory.getStorageService(storeName);
   
   try {
-    // LocalForage uses getItem() method
     const comments = await commentsStorage.getItem(postId);
-    console.log(`Retrieved comments:`, comments);
+    console.log(`Retrieved comments for ${postId}:`, comments);
     
     if (!comments) {
       console.log(`No comments found for post ${postId}`);
