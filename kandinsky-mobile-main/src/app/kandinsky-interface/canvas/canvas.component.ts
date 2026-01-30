@@ -711,18 +711,57 @@ export class CanvasComponent implements OnInit, OnChanges {
    * Apply scam-bot scores back onto circles.
    */
   applyScamScores(results: any[]): void {
-    if (!this.node || this.node.empty()) {
-    console.error('D3 Nodes not initialized yet');
-    return;
-  }
+    if (!results || !this.node) return;
 
-  this.node.transition()
-    .duration(1000)
-    .style('fill', (d: any, i: number) => {
-      const result = results[i]; // No -1 needed if this.node only contains comments
-      return result && result.score > 0.5 ? '#ff4d4d' : '#4ade80';
-    });
-  }
+      const resultsMap = new Map();
+      results.forEach((res, index) => {
+        const originalId = this.circlesByTimestamp[index].rawCircleData.id;
+        resultsMap.set(originalId, res);
+      });
+
+      let visualScamCount = 0;
+
+      // 1. Filter the nodes that are actually scams
+      const scams = this.node.filter((d: any) => {
+        const res = resultsMap.get(d.rawCircleData.id);
+        return res && (res.label === 'SCAM' || Number(res.score) > 0.5);
+      });
+
+      // 2. Bring only the scam circles to the top layer
+      scams.raise();
+
+      // 3. Apply the visual transition
+      this.node.transition()
+        .duration(1000)
+        .style('fill', (d: any) => {
+          const res = resultsMap.get(d.rawCircleData.id);
+          if (!res) return d.color;
+          const isScam = res.label === 'SCAM' || Number(res.score) > 0.5;
+          if (isScam) visualScamCount++;
+          return isScam ? '#ff1100' : '#4ade80';
+        })
+        .style('opacity', (d: any) => {
+          const res = resultsMap.get(d.rawCircleData.id);
+          const isScam = res && (res.label === 'SCAM' || Number(res.score) > 0.5);
+          // GHOST EFFECT: Dim safe comments so scams stand out
+          return isScam ? 1 : 0.15; 
+        })
+        .attr('r', (d: any) => {
+          const res = resultsMap.get(d.rawCircleData.id);
+          const isScam = res && (res.label === 'SCAM' || Number(res.score) > 0.5);
+          return isScam ? Math.max(d.radius * 3, 12) : d.radius;
+        })
+        .style('stroke', (d: any) => {
+          const res = resultsMap.get(d.rawCircleData.id);
+          return res && Number(res.score) > 0.5 ? '#ffffff' : 'none';
+        })
+        .style('stroke-width', (d: any) => {
+          const res = resultsMap.get(d.rawCircleData.id);
+          return res && Number(res.score) > 0.5 ? 2 : 0;
+        });
+
+      console.log(`🎨 UI Update: Coloring ${visualScamCount} circles red.`);
+}
 
   /** Reloads the circles on the canvas UI. */
   private redrawConcentricCircles(): void {

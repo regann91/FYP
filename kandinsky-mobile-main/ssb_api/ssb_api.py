@@ -6,7 +6,6 @@ from transformers import pipeline
 
 app = FastAPI()
 
-# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,34 +13,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 1. Load the AI Model (This happens once when the server starts)
-print("Loading AI Model (BERT Tiny)...")
-classifier = pipeline(
-    "text-classification", 
-    model="mrm8488/bert-tiny-finetuned-sms-spam-detection"
-)
+# Load the BERT model you just installed
+print("Initializing BERT-Tiny AI...")
+classifier = pipeline("text-classification", model="mrm8488/bert-tiny-finetuned-sms-spam-detection")
 
 class CommentRequest(BaseModel):
     comments: List[str]
 
 @app.post("/analyze")
 async def analyze(request: CommentRequest):
-    # 2. Run the AI on the incoming comments
-    # We truncate long comments to 512 tokens to avoid model errors
+    # Process comments through the AI
     predictions = classifier([c[:512] for c in request.comments])
     
     results = []
     for pred in predictions:
-        # The model returns labels like 'LABEL_1' (Spam) or 'LABEL_0' (Ham)
-        # depending on the specific fine-tuning. We convert that to score.
-        is_scam = pred['label'] == 'LABEL_1' or pred['label'] == 'spam'
+        # BERT-Tiny uses 'label_1' for spam and 'label_0' for ham
+        is_spam = pred['label'].lower() == 'label_1'
+        score = pred['score'] if is_spam else (1 - pred['score'])
         
         results.append({
-            "label": "SCAM" if is_scam else "HAM",
-            "score": pred['score'] if is_scam else (1 - pred['score'])
+            "label": "SCAM" if is_spam else "HAM",
+            "score": score
         })
     
-    print(f"AI analyzed {len(request.comments)} comments.")
+    print(f"AI Analysis Complete: Found {sum(1 for r in results if r['label'] == 'SCAM')} potential scams.")
     return results
 
 if __name__ == "__main__":
