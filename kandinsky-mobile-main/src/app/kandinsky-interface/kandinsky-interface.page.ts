@@ -380,8 +380,30 @@ export class KandinskyInterfacePage implements OnInit {
 
   /** Placeholder for SSB calculation and visualization logic. */
   private runSSBVisualisation(): void {
-    console.log('Running SSB: Analytics model engaged.');
-    console.log('ScamBotService instance:', this.scamBotService);
+    // console.log('Running SSB: Analytics model engaged.');
+    // console.log('ScamBotService instance:', this.scamBotService);
+    
+    // 1. Define the mock data
+    const mockComments = [
+      'Win a free iPhone now!!!',
+      'Nice post, thanks for sharing',
+      'Click here to claim your prize'
+    ];
+
+    console.log('Test: Sending mock comments to ScamBotService...');
+
+    // 2. Call the service
+    this.scamBotService.analyzeComments(mockComments)
+      .subscribe({
+        next: (res) => {
+          console.log('SSB result:', res);
+        },
+        error: (err) => {
+          // Since your backend isn't running yet, it WILL hit this error block.
+          // This is actually a SUCCESS for this specific test!
+          console.warn('SSB Network Attempt Verified. Error (Expected):', err.message);
+        }
+      });
   }
 
   /** Placeholder to clear SSB visualization from the canvas. */
