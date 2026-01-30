@@ -5,6 +5,7 @@ import { ModalController, IonSearchbar, LoadingController, NavController } from 
 import { TimelineControlsComponent } from './timeline-controls/timeline-controls.component';
 import { PostInformationModalComponent } from './post-information-modal/post-information-modal.component';
 import { KandinskyService, SearchResult, CommentGroupInterval } from '../services/kandinsky.service';
+import { ScamBotService } from '../services/social/scam-bot.service';
 import _ from 'lodash';
 import * as d3 from 'd3';
 import { SpectrumRange, SpectrumInterval } from './spectrum-controls/spectrum-controls.component';
@@ -87,7 +88,8 @@ export class KandinskyInterfacePage implements OnInit {
     private modalController: ModalController,
     private loadingController: LoadingController,
     private route: ActivatedRoute,
-    private navController: NavController
+    private navController: NavController,
+    private scamBotService: ScamBotService
   ) {}
 
   ngOnInit() {
@@ -379,7 +381,7 @@ export class KandinskyInterfacePage implements OnInit {
   /** Placeholder for SSB calculation and visualization logic. */
   private runSSBVisualisation(): void {
     console.log('Running SSB: Analytics model engaged.');
-    // Future: this.kandinskyService.calculateSSB()...
+    console.log('ScamBotService instance:', this.scamBotService);
   }
 
   /** Placeholder to clear SSB visualization from the canvas. */
