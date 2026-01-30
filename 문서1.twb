@@ -1,0 +1,420 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<!-- build 20252.25.0514.2217                               -->
+<workbook original-version='18.1' source-build='2025.2.0 (20252.25.0514.2217)' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <document-format-change-manifest>
+    <AnimationOnByDefault />
+    <MarkAnimation />
+    <ObjectModelEncapsulateLegacy />
+    <ObjectModelExtractV2 />
+    <ObjectModelTableType />
+    <SchemaViewerObjectModel />
+    <SheetIdentifierTracking />
+    <_.fcp.VConnDownstreamExtractsWithWarnings.true...VConnDownstreamExtractsWithWarnings />
+    <WindowsPersistSimpleIdentifiers />
+  </document-format-change-manifest>
+  <preferences>
+    <preference name='ui.encoding.shelf.height' value='24' />
+    <preference name='ui.shelf.height' value='26' />
+  </preferences>
+  <datasources>
+    <datasource caption='selected_videos_20250920__q45HmRIM08_comments (1)' inline='true' name='federated.1ammuf20oxjve6109dfuz0aeklxn' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='selected_videos_20250920__q45HmRIM08_comments (1)' name='textscan.16wx3ku0pgh5d917bwuk40auf5p7'>
+            <connection class='textscan' directory='C:/Users/megan/Downloads' filename='selected_videos_20250920__q45HmRIM08_comments (1).csv' password='' server='' />
+          </named-connection>
+        </named-connections>
+        <relation connection='textscan.16wx3ku0pgh5d917bwuk40auf5p7' name='selected_videos_20250920__q45HmRIM08_comments (1).csv' table='[selected_videos_20250920__q45HmRIM08_comments (1)#csv]' type='table'>
+          <columns character-set='UTF-8' header='yes' locale='en_SG' separator=','>
+            <column datatype='string' name='Comment ID' ordinal='0' />
+            <column datatype='string' name='Post ID' ordinal='1' />
+            <column datatype='string' name='Content' ordinal='2' />
+            <column datatype='string' name='Author' ordinal='3' />
+            <column datatype='datetime' name='Publish Date' ordinal='4' />
+            <column datatype='integer' name='Like Count' ordinal='5' />
+            <column datatype='integer' name='Reply Count' ordinal='6' />
+            <column datatype='string' name='Parent Comment ID' ordinal='7' />
+            <column datatype='string' name='Parent Author Name' ordinal='8' />
+          </columns>
+        </relation>
+        <metadata-records>
+          <metadata-record class='capability'>
+            <remote-name />
+            <remote-type>0</remote-type>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias />
+            <aggregation>Count</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='character-set'>&quot;UTF-8&quot;</attribute>
+              <attribute datatype='string' name='collation'>&quot;en_GB&quot;</attribute>
+              <attribute datatype='string' name='field-delimiter'>&quot;,&quot;</attribute>
+              <attribute datatype='string' name='header-row'>&quot;true&quot;</attribute>
+              <attribute datatype='string' name='locale'>&quot;en_SG&quot;</attribute>
+              <attribute datatype='string' name='single-char'>&quot;&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Comment ID</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Comment ID]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Comment ID</remote-alias>
+            <ordinal>0</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <scale>1</scale>
+            <width>1073741823</width>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='LEN_RGB' />
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Post ID</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Post ID]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Post ID</remote-alias>
+            <ordinal>1</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <scale>1</scale>
+            <width>1073741823</width>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='LEN_RGB' />
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Content</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Content]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Content</remote-alias>
+            <ordinal>2</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <scale>1</scale>
+            <width>1073741823</width>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='LEN_RGB' />
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Author</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Author]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Author</remote-alias>
+            <ordinal>3</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <scale>1</scale>
+            <width>1073741823</width>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='LEN_RGB' />
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Publish Date</remote-name>
+            <remote-type>135</remote-type>
+            <local-name>[Publish Date]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Publish Date</remote-alias>
+            <ordinal>4</ordinal>
+            <local-type>datetime</local-type>
+            <aggregation>Year</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Like Count</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[Like Count]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Like Count</remote-alias>
+            <ordinal>5</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Reply Count</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[Reply Count]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Reply Count</remote-alias>
+            <ordinal>6</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Parent Comment ID</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Parent Comment ID]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Parent Comment ID</remote-alias>
+            <ordinal>7</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <scale>1</scale>
+            <width>1073741823</width>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='LEN_RGB' />
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>Parent Author Name</remote-name>
+            <remote-type>129</remote-type>
+            <local-name>[Parent Author Name]</local-name>
+            <parent-name>[selected_videos_20250920__q45HmRIM08_comments (1).csv]</parent-name>
+            <remote-alias>Parent Author Name</remote-alias>
+            <ordinal>8</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <scale>1</scale>
+            <width>1073741823</width>
+            <contains-null>true</contains-null>
+            <collation flag='0' name='LEN_RGB' />
+            <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+          </metadata-record>
+        </metadata-records>
+      </connection>
+      <aliases enabled='yes' />
+      <column caption='selected_videos_20250920__q45HmRIM08_comments (1).csv' datatype='table' name='[__tableau_internal_object_id__].[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]' role='measure' type='quantitative' />
+      <extract _.fcp.VConnDownstreamExtractsWithWarnings.true...user-specific='false' count='-1' enabled='true' object-id='' units='records'>
+        <connection access_mode='readonly' author-locale='ko_KR' class='hyper' dbname='C:/Users/megan/AppData/Local/Temp/TableauTemp/#TableauTemp_0t1534f1pt461t1dchszu13mnhwx.hyper' default-settings='hyper' schema='Extract' sslmode='' tablename='Extract' update-time='09/20/2025 03:06:05 PM' username='tableau_internal_user'>
+          <relation name='Extract' table='[Extract].[Extract]' type='table' />
+          <metadata-records>
+            <metadata-record class='column'>
+              <remote-name>Comment ID</remote-name>
+              <remote-type>129</remote-type>
+              <local-name>[Comment ID]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Comment ID</remote-alias>
+              <ordinal>0</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>string</local-type>
+              <aggregation>Count</aggregation>
+              <approx-count>4743</approx-count>
+              <contains-null>true</contains-null>
+              <collation flag='0' name='LEN_RGB' />
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Post ID</remote-name>
+              <remote-type>129</remote-type>
+              <local-name>[Post ID]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Post ID</remote-alias>
+              <ordinal>1</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>string</local-type>
+              <aggregation>Count</aggregation>
+              <approx-count>1</approx-count>
+              <contains-null>true</contains-null>
+              <collation flag='0' name='LEN_RGB' />
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Content</remote-name>
+              <remote-type>129</remote-type>
+              <local-name>[Content]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Content</remote-alias>
+              <ordinal>2</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>string</local-type>
+              <aggregation>Count</aggregation>
+              <approx-count>3231</approx-count>
+              <contains-null>true</contains-null>
+              <collation flag='0' name='LEN_RGB' />
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Author</remote-name>
+              <remote-type>129</remote-type>
+              <local-name>[Author]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Author</remote-alias>
+              <ordinal>3</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>string</local-type>
+              <aggregation>Count</aggregation>
+              <approx-count>2529</approx-count>
+              <contains-null>true</contains-null>
+              <collation flag='0' name='LEN_RGB' />
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Publish Date</remote-name>
+              <remote-type>135</remote-type>
+              <local-name>[Publish Date]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Publish Date</remote-alias>
+              <ordinal>4</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>datetime</local-type>
+              <aggregation>Year</aggregation>
+              <approx-count>2825</approx-count>
+              <contains-null>true</contains-null>
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Like Count</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[Like Count]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Like Count</remote-alias>
+              <ordinal>5</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>84</approx-count>
+              <contains-null>true</contains-null>
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Reply Count</remote-name>
+              <remote-type>20</remote-type>
+              <local-name>[Reply Count]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Reply Count</remote-alias>
+              <ordinal>6</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>integer</local-type>
+              <aggregation>Sum</aggregation>
+              <approx-count>15</approx-count>
+              <contains-null>true</contains-null>
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Parent Comment ID</remote-name>
+              <remote-type>129</remote-type>
+              <local-name>[Parent Comment ID]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Parent Comment ID</remote-alias>
+              <ordinal>7</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>string</local-type>
+              <aggregation>Count</aggregation>
+              <approx-count>306</approx-count>
+              <contains-null>true</contains-null>
+              <collation flag='0' name='LEN_RGB' />
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+            <metadata-record class='column'>
+              <remote-name>Parent Author Name</remote-name>
+              <remote-type>129</remote-type>
+              <local-name>[Parent Author Name]</local-name>
+              <parent-name>[Extract]</parent-name>
+              <remote-alias>Parent Author Name</remote-alias>
+              <ordinal>8</ordinal>
+              <family>selected_videos_20250920__q45HmRIM08_comments (1).csv</family>
+              <local-type>string</local-type>
+              <aggregation>Count</aggregation>
+              <approx-count>244</approx-count>
+              <contains-null>true</contains-null>
+              <collation flag='0' name='LEN_RGB' />
+              <object-id>[selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E]</object-id>
+            </metadata-record>
+          </metadata-records>
+        </connection>
+      </extract>
+      <layout dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+      <semantic-values>
+        <semantic-value key='[Country].[Name]' value='&quot;싱가포르&quot;' />
+      </semantic-values>
+      <object-graph>
+        <objects>
+          <object caption='selected_videos_20250920__q45HmRIM08_comments (1).csv' id='selected_videos_20250920__q45HmRIM08_comments (1).csv_EAB284EFA0424121AACB72EB23D1BC0E'>
+            <properties context=''>
+              <relation connection='textscan.16wx3ku0pgh5d917bwuk40auf5p7' name='selected_videos_20250920__q45HmRIM08_comments (1).csv' table='[selected_videos_20250920__q45HmRIM08_comments (1)#csv]' type='table'>
+                <columns character-set='UTF-8' header='yes' locale='en_SG' separator=','>
+                  <column datatype='string' name='Comment ID' ordinal='0' />
+                  <column datatype='string' name='Post ID' ordinal='1' />
+                  <column datatype='string' name='Content' ordinal='2' />
+                  <column datatype='string' name='Author' ordinal='3' />
+                  <column datatype='datetime' name='Publish Date' ordinal='4' />
+                  <column datatype='integer' name='Like Count' ordinal='5' />
+                  <column datatype='integer' name='Reply Count' ordinal='6' />
+                  <column datatype='string' name='Parent Comment ID' ordinal='7' />
+                  <column datatype='string' name='Parent Author Name' ordinal='8' />
+                </columns>
+              </relation>
+            </properties>
+            <properties context='extract'>
+              <relation name='Extract' table='[Extract].[Extract]' type='table' />
+            </properties>
+          </object>
+        </objects>
+      </object-graph>
+    </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name='시트 1'>
+      <table>
+        <view>
+          <datasources />
+          <aggregation value='true' />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option='selection-relaxation-allow'>
+            <view>
+              <breakdown value='auto' />
+            </view>
+            <mark class='Automatic' />
+          </pane>
+        </panes>
+        <rows />
+        <cols />
+      </table>
+      <simple-id uuid='{F8F73008-AC19-404D-832C-827B307B4BED}' />
+    </worksheet>
+  </worksheets>
+  <windows saved-dpi-scale-factor='1.25' source-height='37'>
+    <window class='worksheet' maximized='true' name='시트 1'>
+      <cards>
+        <edge name='left'>
+          <strip size='160'>
+            <card type='pages' />
+            <card type='filters' />
+            <card type='marks' />
+          </strip>
+        </edge>
+        <edge name='top'>
+          <strip size='2147483647'>
+            <card type='columns' />
+          </strip>
+          <strip size='2147483647'>
+            <card type='rows' />
+          </strip>
+          <strip size='30'>
+            <card type='title' />
+          </strip>
+        </edge>
+      </cards>
+      <simple-id uuid='{1EC268FE-8BFF-4B45-814F-FC8B94EA0430}' />
+    </window>
+  </windows>
+  <thumbnails>
+    <thumbnail height='192' name='시트 1' width='192'>
+      iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAACXBIWXMAABJ0AAASdAHeZh94
+      AAACFUlEQVR4nO3TMQEAIAzAMMC/5yFjRxMFfXpnZg5Eve0A2GQA0gxAmgFIMwBpBiDNAKQZ
+      gDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFI
+      MwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQD
+      kGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBp
+      BiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA
+      0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDN
+      AKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxA
+      mgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZ
+      gDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFI
+      MwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKQZgDQDkGYA0gxAmgFIMwBpBiDNAKR9Y+0F
+      fBUOM1sAAAAASUVORK5CYII=
+    </thumbnail>
+  </thumbnails>
+</workbook>

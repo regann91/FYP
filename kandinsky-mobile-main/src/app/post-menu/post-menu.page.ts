@@ -401,7 +401,7 @@ export class PostMenuPage implements OnInit {
   private convertCurrentCommentsToCSV(comments: any[]): string {
     const headers = [
       'Comment ID', 'Post ID', 'Content', 'Author', 'Publish Date',
-      'Like Count', 'Reply Count', 'Parent Comment ID', 'Parent Author Name'
+      'Like Count', 'Reply Count', 'Parent Comment ID', 'Parent Author Name', 'Keywords/Topics'
     ];
 
     const rows = comments.map(comment => [
@@ -413,10 +413,63 @@ export class PostMenuPage implements OnInit {
       (comment.likeCount ? comment.likeCount.toString() : '0'),
       (comment.commentCount ? comment.commentCount.toString() : '0'),
       this.escapeCsvValue(comment.parentCommentId || ''),
-      this.escapeCsvValue(comment.parentAuthorName || '')
+      this.escapeCsvValue(comment.parentAuthorName || ''),
+      this.escapeCsvValue(this.extractKeywords(comment))
     ]);
 
     return [headers, ...rows].map(row => row.join(',')).join('\n');
+  }
+
+  /**
+   * Extracts keywords/topics from a comment's analytics data
+   */
+  private extractKeywords(comment: any): string {
+    try {
+      // Check if analytics.topics exists
+      if (comment.analytics && comment.analytics.topics && Array.isArray(comment.analytics.topics)) {
+        return comment.analytics.topics.join(',');
+      }
+      
+      // Fallback: try to extract keywords using simple text analysis
+      if (comment.content) {
+        return this.simpleKeywordExtraction(comment.content);
+      }
+      
+      return '-';
+    } catch (error) {
+      console.warn('Error extracting keywords:', error);
+      return 'Error extracting keywords';
+    }
+  }
+
+  /**
+   * Simple fallback keyword extraction if analytics data isn't available
+   */
+  private simpleKeywordExtraction(content: string): string {
+    try {
+      // Remove common words and extract meaningful terms
+      const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'this', 'that', 'these', 'those'];
+      
+      const words = content.toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(word => word.length > 3 && !stopWords.includes(word));
+      
+      // Get unique words and limit to top 5 most frequent
+      const wordFreq = words.reduce((freq, word) => {
+        freq[word] = (freq[word] || 0) + 1;
+        return freq;
+      }, {} as {[key: string]: number});
+      
+      const keywords = Object.entries(wordFreq)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([word]) => word);
+      
+      return keywords.join(',') || '-';
+    } catch (error) {
+      return 'Error in keyword extraction';
+    }
   }
 
   /**
