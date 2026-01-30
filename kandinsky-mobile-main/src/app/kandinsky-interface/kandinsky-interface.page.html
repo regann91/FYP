@@ -156,7 +156,8 @@
         *ngIf="isSpectrumModeOn"
         [intervals]="spectrumIntervals"
         [(range)]="spectrumRange"
-        (rangeChange)="spectrumRangeChange()">
+        (rangeChange)="spectrumRangeChange()"
+        (ssbToggle)="onSSBToggle($event)">
       </ksky-spectrum-controls>
 
       <ksky-timeline-controls #timelineControls

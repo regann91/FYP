@@ -1,5 +1,10 @@
 <ion-card class="mt-2">
   <ion-card-content class="px-2 py-1">
+    <ion-item lines="none" class="ssb-toggle">
+      <ion-label>SSB Visualisation</ion-label>
+      <ion-toggle slot="end" (ionChange)="onSSBToggle($event)"></ion-toggle>
+    </ion-item>
+
     <div class="p-2 spectrum-controls-container">
       <svg class="spectrum-canvas" width="100%" height="80px"></svg>
       <div class="range-container">

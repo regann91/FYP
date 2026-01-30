@@ -365,6 +365,29 @@ export class KandinskyInterfacePage implements OnInit {
     }
   }
 
+  /** Handles the SSB Visualisation toggle event from the spectrum controls. */
+  protected onSSBToggle(enabled: boolean): void {
+    console.log('SSB mode toggled:', enabled);
+
+    if (enabled) {
+      this.runSSBVisualisation();
+    } else {
+      this.disableSSBVisualisation();
+    }
+  }
+
+  /** Placeholder for SSB calculation and visualization logic. */
+  private runSSBVisualisation(): void {
+    console.log('Running SSB: Analytics model engaged.');
+    // Future: this.kandinskyService.calculateSSB()...
+  }
+
+  /** Placeholder to clear SSB visualization from the canvas. */
+  private disableSSBVisualisation(): void {
+    console.log('Disabling SSB: Cleaning up canvas layers.');
+    // Future: this.canvas.clearSSB()...
+  }
+
   /** Handler for changes made to range of spectrum timelines. */
   protected spectrumRangeChange(): void {
     const lowerGroupIndex = this.spectrumRange.lower === -1 ? 0 : this.spectrumRange.lower;

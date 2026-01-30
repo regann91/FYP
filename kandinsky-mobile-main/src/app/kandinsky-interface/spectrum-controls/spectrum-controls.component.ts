@@ -25,6 +25,9 @@ export class SpectrumControlsComponent implements OnInit, OnChanges {
   @Output()
   rangeChange: EventEmitter<SpectrumRange>;
 
+  @Output()
+  ssbToggle = new EventEmitter<boolean>();
+
   private componentContainer: Selection<SVGGElement, any, HTMLElement, any>;
 
   private yScale: ScaleLogarithmic<number, number>;
@@ -65,6 +68,12 @@ export class SpectrumControlsComponent implements OnInit, OnChanges {
         this.updateBars(this.intervals);
       });
     }
+  }
+
+  /** Handles the SSB Visualisation toggle state change. */
+  onSSBToggle(event: any) {
+    const enabled = event.detail.checked;
+    this.ssbToggle.emit(enabled);
   }
 
   /** Propagates changes to the spectrum range to other components. */
