@@ -13,6 +13,9 @@ export class ScamBotService {
   constructor(private http: HttpClient) {}
 
   analyzeComments(comments: string[]): Observable<any[]> {
-    return this.http.post<any[]>(this.apiUrl, comments);
+    // Wrap the array in an object to match the Python BaseModel
+    const body = { comments: comments }; 
+    
+    return this.http.post<any[]>(this.apiUrl, body);
   }
 }

@@ -97,6 +97,8 @@ export class CanvasComponent implements OnInit, OnChanges {
     }
   }
 
+  
+
   /**
    * Implements the map operator in the abstraction model.
    * @param circles Array of circles representing all the comments of a social post.
@@ -488,6 +490,8 @@ export class CanvasComponent implements OnInit, OnChanges {
       isFocused: false,
       isHighlighted: false,
       rawCircleData: comment,
+      scamResult: null,
+      content: comment.content
     };
   }
 
@@ -688,6 +692,36 @@ export class CanvasComponent implements OnInit, OnChanges {
 
     return this.circlesByTimestamp
       .filter(circleDatum => setCircleIds.has(circleDatum.rawCircleData.id));
+  }
+
+    /**
+   * Extract all visible comment texts for SSB analysis.
+   */
+  public getCommentsText(): string[] {
+    if (!this.circlesByTimestamp) {
+      return [];
+    }
+
+    return this.circlesByTimestamp
+    .map(circle => circle.content || '')
+    .filter(text => text.length > 0);
+  }
+
+  /**
+   * Apply scam-bot scores back onto circles.
+   */
+  public applyScamScores(results: any[]): void {
+    if (!this.circlesByTimestamp || !results) {
+      return;
+    }
+
+    this.circlesByTimestamp.forEach((circle, i) => {
+      circle['scamResult'] = results[i];
+    });
+
+    console.log('SSB attached to circles:', this.circlesByTimestamp);
+
+    // later we trigger redraw here
   }
 
   /** Reloads the circles on the canvas UI. */
@@ -980,6 +1014,8 @@ export interface Circle {
   isHighlighted: boolean;
   isFocused: boolean;
   rawCircleData: RawCircleData;
+  scamResult?: any;
+  content?: string;
 }
 
 /** The necessary comment data for the canvas circle entity. */

@@ -380,36 +380,49 @@ export class KandinskyInterfacePage implements OnInit {
 
   /** Placeholder for SSB calculation and visualization logic. */
   private runSSBVisualisation(): void {
-    // console.log('Running SSB: Analytics model engaged.');
-    // console.log('ScamBotService instance:', this.scamBotService);
-    
-    // 1. Define the mock data
-    const mockComments = [
-      'Win a free iPhone now!!!',
-      'Nice post, thanks for sharing',
-      'Click here to claim your prize'
-    ];
+    // // 1. Define the mock data
+    // const mockComments = [
+    //   'Win a free iPhone now!!!',
+    //   'Nice post, thanks for sharing',
+    //   'Click here to claim your prize'
+    // ];
 
-    console.log('Test: Sending mock comments to ScamBotService...');
+    // console.log('Test: Sending mock comments to ScamBotService...');
 
-    // 2. Call the service
-    this.scamBotService.analyzeComments(mockComments)
-      .subscribe({
-        next: (res) => {
-          console.log('SSB result:', res);
-        },
-        error: (err) => {
-          // Since your backend isn't running yet, it WILL hit this error block.
-          // This is actually a SUCCESS for this specific test!
-          console.warn('SSB Network Attempt Verified. Error (Expected):', err.message);
-        }
+    // // 2. Call the service
+    // this.scamBotService.analyzeComments(mockComments)
+    //   .subscribe({
+    //     next: (res) => {
+    //       console.log('SSB result:', res);
+    //     },
+    //     error: (err) => {
+    //       // Since your backend isn't running yet, it WILL hit this error block.
+    //       // This is actually a SUCCESS for this specific test!
+    //       console.warn('SSB Network Attempt Verified. Error (Expected):', err.message);
+    //     }
+    //   });
+    if (!this.canvas) {
+      console.warn('Canvas not ready');
+      return;
+    }
+
+    const comments = this.canvas.getCommentsText();
+
+    console.log('Sending comments:', comments);
+
+    this.scamBotService.analyzeComments(comments)
+      .subscribe(results => {
+        console.log('SSB results:', results);
+        this.canvas.applyScamScores(results);
       });
   }
 
   /** Placeholder to clear SSB visualization from the canvas. */
   private disableSSBVisualisation(): void {
     console.log('Disabling SSB: Cleaning up canvas layers.');
-    // Future: this.canvas.clearSSB()...
+    if (this.canvas) {
+      this.canvas.applyScamScores([]);
+    }
   }
 
   /** Handler for changes made to range of spectrum timelines. */
