@@ -72,7 +72,7 @@ export class CanvasComponent implements OnInit, OnChanges {
   private radiusScale: ScalePower<number, number>;
   private graph: KandinskyGraph<ConcentricCircle, ConcentricCircleDatumLink>;
   private concentricCirclesSvg: Selection<SVGGElement, ConcentricCircle, SVGGElement, unknown>;
-
+  private node: d3.Selection<SVGCircleElement, any, SVGGElement, any>;
   private width: number;
   private height: number;
   private center: { x: number, y: number };
@@ -430,36 +430,36 @@ export class CanvasComponent implements OnInit, OnChanges {
 
   /** Builds the HTML elements of the Kandinsky canvas for the shape buckets saved in the canvas component. */
   private createCanvasEntities():void {
-  
     this.graph = this.buildGraph(this.shapeBuckets);
-    this.concentricCircles = this.graph.nodes;
-  
-    this.concentricCirclesSvg = this.container.selectAll(`.${this.CLASS.CONCENTRIC_CIRCLE}`)
-      .data(this.graph.nodes)
-      .enter()
-      .append('g')
-      .classed(this.CLASS.CONCENTRIC_CIRCLE, true)
-      .attr('id', d => d.id)
-      .each(concentricCircleDatum => {
-        const concentricCircle = this.getDatumElement(concentricCircleDatum.id) as Selection<SVGGElement, ConcentricCircle, HTMLElement, any>;
-        concentricCircle.selectAll(`.${this.CLASS.CIRCLE}`)
-          .data([concentricCircleDatum.pivot, ...concentricCircleDatum.pivot.children])
-          .enter()
-          .append('circle')
-          .classed(this.CLASS.CIRCLE, true)
-          .attr('id', d => d.id)
-          .attr('r', d => d.radius)
-          .style('fill', d => d.color)
-          .style('opacity', '0')
-          .lower();
-  
-        concentricCircle.append('rect')
-          .classed(this.CLASS.SELECT_BOX, true)
-          .style('fill', 'transparent')
-          .style('pointer-events', 'none')
-          .style('opacity', '0');
-      })
-      .on('click', d => this.select(d));  
+      this.concentricCircles = this.graph.nodes;
+
+      this.concentricCirclesSvg = this.container.selectAll(`.${this.CLASS.CONCENTRIC_CIRCLE}`)
+        .data(this.graph.nodes)
+        .enter()
+        .append('g')
+        .classed(this.CLASS.CONCENTRIC_CIRCLE, true)
+        .attr('id', d => d.id)
+        .on('click', d => this.select(d));
+
+      // Capture all circles across all groups into this.node
+      this.node = this.concentricCirclesSvg
+        .selectAll(`.${this.CLASS.CIRCLE}`)
+        .data(d => [d.pivot, ...d.pivot.children])
+        .enter()
+        .append('circle')
+        .classed(this.CLASS.CIRCLE, true)
+        .attr('id', d => d.id)
+        .attr('r', d => d.radius)
+        .style('fill', d => d.color)
+        .style('opacity', '0')
+        .lower();
+
+      // Add the select boxes separately after
+      this.concentricCirclesSvg.append('rect')
+        .classed(this.CLASS.SELECT_BOX, true)
+        .style('fill', 'transparent')
+        .style('pointer-events', 'none')
+        .style('opacity', '0');
   }
 
   /**
@@ -710,18 +710,18 @@ export class CanvasComponent implements OnInit, OnChanges {
   /**
    * Apply scam-bot scores back onto circles.
    */
-  public applyScamScores(results: any[]): void {
-    if (!this.circlesByTimestamp || !results) {
-      return;
-    }
+  applyScamScores(results: any[]): void {
+    if (!this.node || this.node.empty()) {
+    console.error('D3 Nodes not initialized yet');
+    return;
+  }
 
-    this.circlesByTimestamp.forEach((circle, i) => {
-      circle['scamResult'] = results[i];
+  this.node.transition()
+    .duration(1000)
+    .style('fill', (d: any, i: number) => {
+      const result = results[i]; // No -1 needed if this.node only contains comments
+      return result && result.score > 0.5 ? '#ff4d4d' : '#4ade80';
     });
-
-    console.log('SSB attached to circles:', this.circlesByTimestamp);
-
-    // later we trigger redraw here
   }
 
   /** Reloads the circles on the canvas UI. */
