@@ -724,7 +724,7 @@ export class CanvasComponent implements OnInit, OnChanges {
       // 1. Filter the nodes that are actually scams
       const scams = this.node.filter((d: any) => {
         const res = resultsMap.get(d.rawCircleData.id);
-        return res && (res.label === 'SCAM' || Number(res.score) > 0.5);
+        return res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
       });
 
       // 2. Bring only the scam circles to the top layer
@@ -736,28 +736,30 @@ export class CanvasComponent implements OnInit, OnChanges {
         .style('fill', (d: any) => {
           const res = resultsMap.get(d.rawCircleData.id);
           if (!res) return d.color;
-          const isScam = res.label === 'SCAM' || Number(res.score) > 0.5;
+          const isScam = res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM'));
           if (isScam) visualScamCount++;
           return isScam ? '#ff1100' : '#4ade80';
         })
         .style('opacity', (d: any) => {
           const res = resultsMap.get(d.rawCircleData.id);
-          const isScam = res && (res.label === 'SCAM' || Number(res.score) > 0.5);
+          const isScam = res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
           // GHOST EFFECT: Dim safe comments so scams stand out
           return isScam ? 1 : 0.15; 
         })
         .attr('r', (d: any) => {
           const res = resultsMap.get(d.rawCircleData.id);
-          const isScam = res && (res.label === 'SCAM' || Number(res.score) > 0.5);
+          const isScam = res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
           return isScam ? Math.max(d.radius * 3, 12) : d.radius;
         })
         .style('stroke', (d: any) => {
           const res = resultsMap.get(d.rawCircleData.id);
-          return res && Number(res.score) > 0.5 ? '#ffffff' : 'none';
+          const isScam = res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
+          return isScam ? '#ffffff' : 'none'; 
         })
         .style('stroke-width', (d: any) => {
           const res = resultsMap.get(d.rawCircleData.id);
-          return res && Number(res.score) > 0.5 ? 2 : 0;
+          const isScam = res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
+          return isScam ? 2 : 0;
         });
 
       console.log(`🎨 UI Update: Coloring ${visualScamCount} circles red.`);

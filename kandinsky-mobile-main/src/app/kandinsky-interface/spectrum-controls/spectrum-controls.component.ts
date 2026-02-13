@@ -28,6 +28,10 @@ export class SpectrumControlsComponent implements OnInit, OnChanges {
   @Output()
   ssbToggle = new EventEmitter<boolean>();
 
+  @Output() 
+  exportScams = new EventEmitter<void>();
+
+
   private componentContainer: Selection<SVGGElement, any, HTMLElement, any>;
 
   private yScale: ScaleLogarithmic<number, number>;
@@ -74,6 +78,10 @@ export class SpectrumControlsComponent implements OnInit, OnChanges {
   onSSBToggle(event: any) {
     const enabled = event.detail.checked;
     this.ssbToggle.emit(enabled);
+  }
+
+  onExportScamsCsvClick(): void {
+    this.exportScams.emit();
   }
 
   /** Propagates changes to the spectrum range to other components. */
