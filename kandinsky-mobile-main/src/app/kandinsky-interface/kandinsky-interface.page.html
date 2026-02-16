@@ -157,7 +157,8 @@
         [intervals]="spectrumIntervals"
         [(range)]="spectrumRange"
         (rangeChange)="spectrumRangeChange()"
-        (ssbToggle)="onSSBToggle($event)">
+        (ssbToggle)="onSSBToggle($event)"
+        (exportScams)="downloadSSBScamsCSV()">
       </ksky-spectrum-controls>
 
       <ksky-timeline-controls #timelineControls

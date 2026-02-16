@@ -24,6 +24,10 @@ import { buildLinearScale, createLoading, isConcentricCircleDatum, scrollToEleme
   styleUrls: ['./kandinsky-interface.page.scss'],
 })
 export class KandinskyInterfacePage implements OnInit {
+  protected isSSBEnabled: boolean = false;
+
+  // Store results by comment id
+  private ssbByCommentId = new Map<string, { label: 'SCAM' | 'HAM'; score: number }>();
 
   // active post data
   protected post: SocialPost;
@@ -42,6 +46,9 @@ export class KandinskyInterfacePage implements OnInit {
   protected spectrumStartTime: number;
   protected spectrumEndTime: number;
   private NUM_GROUPS: number = NUM_GROUPS;
+  private lastSSBComments: SocialComment[] = [];
+  private lastSSBResults: any[] = [];
+
 
   // search params
   protected isSearchFocusModeOn: boolean = SEARCH_DEFAULT_MODE;
@@ -354,6 +361,146 @@ export class KandinskyInterfacePage implements OnInit {
     }
   }
 
+  private csvEscape(value: any): string {
+    const s = value === null || value === undefined ? '' : String(value);
+    const needsQuotes = s.indexOf(',') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0 || s.indexOf('"') >= 0;
+    if (!needsQuotes) return s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
+  public downloadSSBScamsCSV(): void {
+    if (!this.lastSSBComments || !this.lastSSBResults || this.lastSSBResults.length === 0) {
+      console.warn('No SSB results available to export yet.');
+      return;
+    }
+
+    const header = [
+      'comment_id',
+      'author',
+      'publish_timestamp',
+      'score',
+      'tactic',
+      'label',
+      'text'
+    ];
+
+    const rows: string[] = [];
+    rows.push(header.join(','));
+
+    const n = Math.min(this.lastSSBComments.length, this.lastSSBResults.length);
+
+    for (let i = 0; i < n; i++) {
+      const c = this.lastSSBComments[i];
+      const r = this.lastSSBResults[i];
+
+      if (!r) continue;
+
+      const label = r.label;
+      const score = Number(r.score);
+
+      // Keep consistent with your canvas logic:
+      const isScam = label === 'SCAM' || (typeof label === 'string' && label.startsWith('SCAM'));
+      if (!isScam) continue;
+
+      const row = [
+        this.csvEscape(c && c.id ? c.id : ''),
+        this.csvEscape(c && c.authorName ? c.authorName : ''),
+        this.csvEscape(c && c.publishTimestamp ? c.publishTimestamp : ''),
+        this.csvEscape(isNaN(score) ? '' : score),
+        this.csvEscape(r.tactic ? r.tactic : ''),
+        this.csvEscape(label ? label : ''),
+        this.csvEscape(c && c.content ? c.content : '')
+      ];
+
+      rows.push(row.join(','));
+    }
+
+    const csv = rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ssb_scams_' + Date.now() + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    console.log('CSV exported:', rows.length - 1, 'scam rows');
+  }
+
+
+  /** Handles the SSB Visualisation toggle event from the spectrum controls. */
+  protected onSSBToggle(enabled: boolean): void {
+    console.log('SSB mode toggled:', enabled);
+    this.isSSBEnabled = enabled;
+
+    if (enabled) {
+      this.runSSBVisualisation();
+    } else {
+      this.disableSSBVisualisation();
+    }
+  }
+
+  private runSSBVisualisation(): void {
+    // Use the same source of truth as your UI contexts
+    const allComments: SocialComment[] = this.kandinskyService.getActivePostComments();
+    const texts = allComments.map(c => ((c && c.content) ? c.content : '').slice(0, 512));
+
+    console.log(`SSB: sending ${texts.length} comments to backend`);
+
+    this.scamBotService.analyzeComments(texts).subscribe({
+      next: (results: { label: 'SCAM' | 'HAM'; score: number }[]) => {
+        // Save for export
+        this.lastSSBComments = allComments;
+        this.lastSSBResults = results;
+        // Map results back to comment ids by index
+        this.ssbByCommentId.clear();
+        for (let i = 0; i < results.length; i++) {
+          const id = allComments[i] && allComments[i].id ? allComments[i].id : null;
+          if (id) this.ssbByCommentId.set(id, results[i]);
+        }
+
+        // Re-apply visibility now that we have results
+        this.refreshContextsVisibility();
+
+        // Optional: if your canvas supports overlays
+        // (only do this if applyScamScores expects the same ordering)
+        if (this.canvas) {
+          this.canvas.applyScamScores(results as any);
+        }
+
+        console.log('SSB: results applied');
+      },
+      error: (err) => {
+        console.error('SSB: analyzeComments failed', err);
+      }
+    });
+  }
+
+  private disableSSBVisualisation(): void {
+    this.isSSBEnabled = false;
+    this.ssbByCommentId.clear();
+
+    // Reset visibility
+    this.refreshContextsVisibility();
+
+    // Optional: clear canvas overlay
+    if (this.canvas) {
+      this.canvas.applyScamScores([]);
+    }
+  }
+
+  /**
+ * Recompute visibility for whatever comment contexts are currently being shown,
+ * combining: timeline visibility AND SSB filter.
+ */
+  private refreshContextsVisibility(): void {
+    // This reuses your existing logic, but incorporates SSB
+    this.updateCommentContexts();
+  }
+
   /** Toggles between timeline spectrum mode. All comments are displayed when spectrum mode is active. */
   protected toggleSpectrumMode(): void {
     this.isSpectrumModeOn = !this.isSpectrumModeOn;
@@ -364,64 +511,6 @@ export class KandinskyInterfacePage implements OnInit {
       this.timestampChange(this.maxProgress);
     } else {
       this.canvas.setHighlighted([]);
-    }
-  }
-
-  /** Handles the SSB Visualisation toggle event from the spectrum controls. */
-  protected onSSBToggle(enabled: boolean): void {
-    console.log('SSB mode toggled:', enabled);
-
-    if (enabled) {
-      this.runSSBVisualisation();
-    } else {
-      this.disableSSBVisualisation();
-    }
-  }
-
-  /** Placeholder for SSB calculation and visualization logic. */
-  private runSSBVisualisation(): void {
-    // // 1. Define the mock data
-    // const mockComments = [
-    //   'Win a free iPhone now!!!',
-    //   'Nice post, thanks for sharing',
-    //   'Click here to claim your prize'
-    // ];
-
-    // console.log('Test: Sending mock comments to ScamBotService...');
-
-    // // 2. Call the service
-    // this.scamBotService.analyzeComments(mockComments)
-    //   .subscribe({
-    //     next: (res) => {
-    //       console.log('SSB result:', res);
-    //     },
-    //     error: (err) => {
-    //       // Since your backend isn't running yet, it WILL hit this error block.
-    //       // This is actually a SUCCESS for this specific test!
-    //       console.warn('SSB Network Attempt Verified. Error (Expected):', err.message);
-    //     }
-    //   });
-    if (!this.canvas) {
-      console.warn('Canvas not ready');
-      return;
-    }
-
-    const comments = this.canvas.getCommentsText();
-
-    console.log('Sending comments:', comments);
-
-    this.scamBotService.analyzeComments(comments)
-      .subscribe(results => {
-        console.log('SSB results:', results);
-        this.canvas.applyScamScores(results);
-      });
-  }
-
-  /** Placeholder to clear SSB visualization from the canvas. */
-  private disableSSBVisualisation(): void {
-    console.log('Disabling SSB: Cleaning up canvas layers.');
-    if (this.canvas) {
-      this.canvas.applyScamScores([]);
     }
   }
 
@@ -478,7 +567,7 @@ export class KandinskyInterfacePage implements OnInit {
         id: `comment-${comment.id}`,
         comment: comment,
         display: {
-          visible: forceVisibility || this.canvas.shouldDisplayCircle(circleDatum),
+          visible: forceVisibility || (this.canvas.shouldDisplayCircle(circleDatum) && this.passesSSB(comment.id)),
           showLines: showLines,
           highlightOptions: [
             {
@@ -513,6 +602,12 @@ export class KandinskyInterfacePage implements OnInit {
       }
     };
   }
+  private passesSSB(commentId: string): boolean {
+    if (!this.isSSBEnabled) return true;
+    const ssb = this.ssbByCommentId.get(commentId);
+    if (!ssb) return true;           // not computed yet
+    return ssb.label === 'SCAM';
+  }
 
   /** Updates the comments information when changes are made to their visibility. */
   private updateCommentContexts(): void {
@@ -534,9 +629,28 @@ export class KandinskyInterfacePage implements OnInit {
       newVisibleCommentsCount = this.visibleSimilarCommentsCount;
     }
 
-    commentContextsToUpdate.forEach(commentItemContext => 
-      commentItemContext.context.display.visible = this.canvas.shouldDisplayCircle(commentItemContext.context.circle)
-    );
+    commentContextsToUpdate.forEach(commentItemContext => {
+    const baseVisible = this.canvas.shouldDisplayCircle(commentItemContext.context.circle);
+
+    if (!this.isSSBEnabled) {
+      commentItemContext.context.display.visible = baseVisible;
+      return;
+    }
+
+    const commentId =
+    commentItemContext &&
+    commentItemContext.context &&
+    commentItemContext.context.comment
+      ? commentItemContext.context.comment.id
+      : null;
+    const ssb = commentId ? this.ssbByCommentId.get(commentId) : null;
+
+    // While results are not ready, keep it visible (so UI doesn't go blank)
+    const passesSSB = !ssb ? true : (ssb.label === 'SCAM');
+
+    commentItemContext.context.display.visible = baseVisible && passesSSB;
+  });
+
 
     if (newVisibleCommentsCount > 0 && prevVisibileCommentsCount != newVisibleCommentsCount) {
       const lastVisibleCommentContext = commentContextsToUpdate.filter(c => c.context.display.visible).pop();

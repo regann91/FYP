@@ -33,3 +33,17 @@ npm-debug.log*
 android/.idea/
 
 .gradle/
+# Python venvs
+venv/
+.venv/
+**/venv/
+**/.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Common big dirs
+node_modules/
+dist/
+build/
