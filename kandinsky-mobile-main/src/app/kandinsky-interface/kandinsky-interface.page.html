@@ -29,12 +29,25 @@
       <div class="subheader-container px-4 py-2" *ngIf="!isShowSimilarCommentsOn">
         <ion-searchbar
           class="p-0"
+          debounce="150"
           [(ngModel)]="searchQuery"
           (ionChange)="search(searchQuery)"
+          (ionInput)="search($event.detail.value || '')"
           (ionFocus)="setIsSearchFocusOn(true)"
           (ionBlur)="setIsSearchFocusOn(false)"
           (ionClear)="search()">
         </ion-searchbar>
+        <div class="search-results-overlay px-4 py-1" *ngIf="isSearchFocusModeOn && searchResultCount > 0">
+          <ion-text color="light">
+            {{ currentSearchIndex + 1 }} / {{ searchResultCount }} results
+          </ion-text>
+          <ion-button fill="clear" size="small" (click)="prevSearchResult()">
+            <ion-icon name="arrow-dropup"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small" (click)="nextSearchResult()">
+            <ion-icon name="arrow-dropdown"></ion-icon>
+          </ion-button>
+        </div>
         <!-- <ksky-search #searchComponent
           (searchQueryChange)="search($event)"
           (setSearchFocusMode)="setIsSearchFocusOn($event)">
@@ -158,6 +171,7 @@
         [(range)]="spectrumRange"
         (rangeChange)="spectrumRangeChange()"
         (ssbToggle)="onSSBToggle($event)"
+        (openInsights)="openSSBInsights()"
         (exportScams)="downloadSSBScamsCSV()">
       </ksky-spectrum-controls>
 
@@ -186,6 +200,21 @@
       <!-- yellow: {{context.display.highlightOptions[0].indices.join(' - ')}}
       blue: {{context.display.highlightOptions[1].indices.join(' - ')}} -->
       <p [innerHTML]="context.comment.content | highlight : context.display.highlightOptions | sanitizeHtml"></p>
+      <div *ngIf="isSSBEnabled">
+        <div *ngIf="getSSBResultForComment(context.comment.id) as ssb" class="ssb-explain">
+          <ion-chip [color]="ssb.flagged ? 'danger' : 'success'" size="small">
+            {{ ssb.flagged ? 'SCAM' : 'HAM' }} • {{ ssb.score | number:'1.2-2' }}
+          </ion-chip>
+
+          <div class="ssb-meta">
+            <small class="text-muted">
+              Tactic: {{ ssb.tactic ? ssb.tactic : '-' }}
+              • Tags: {{ ssb.ruleTags && ssb.ruleTags.length ? ssb.ruleTags.join(', ') : '-' }}
+              • ML: {{ ssb.mlProb !== null ? (ssb.mlProb | number:'1.2-2') : '-' }}
+            </small>
+          </div>
+        </div>
+      </div>
       <div class="d-flex justify-content-between">
         <div class="buttons-container">
           <ion-button size="small" fill="clear" color="medium">

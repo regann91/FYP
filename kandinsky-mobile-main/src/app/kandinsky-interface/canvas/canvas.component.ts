@@ -271,6 +271,21 @@ export class CanvasComponent implements OnInit, OnChanges {
     }
   }
 
+  public focusCommentById(commentId: string): void {
+    if (!commentId || !this.circlesByTimestamp || !this.concentricCircles) return;
+
+    var circle = this.circlesByTimestamp.find(c => c && c.rawCircleData && c.rawCircleData.id === commentId);
+    if (!circle) return;
+
+    var concentric = this.concentricCircles.find(cc => cc && cc.id === circle.concentricCircleId);
+    if (!concentric) return;
+
+    // select will also trigger balance(zoom) when already selected;
+    // call select to ensure the box / state updates.
+    this.select(concentric);
+  }
+
+
   /**
    * Implements the balance operator of the abstraction model.
    * @param concentricCircle Optional argument. When given, the balance operator zooms in on 
@@ -710,60 +725,95 @@ export class CanvasComponent implements OnInit, OnChanges {
   /**
    * Apply scam-bot scores back onto circles.
    */
-  applyScamScores(results: any[]): void {
-    if (!results || !this.node) return;
+  applyScamScores(results: any[], threshold: number): void {
+    if (!results || !this.node || !this.circlesByTimestamp) return;
 
-      const resultsMap = new Map();
-      results.forEach((res, index) => {
-        const originalId = this.circlesByTimestamp[index].rawCircleData.id;
-        resultsMap.set(originalId, res);
+    var thr = Number(threshold);
+    if (isNaN(thr)) thr = 0.85;
+
+    var resultsMap = new Map<string, any>();
+    for (var i = 0; i < results.length && i < this.circlesByTimestamp.length; i++) {
+      var id = this.circlesByTimestamp[i].rawCircleData.id;
+      resultsMap.set(id, results[i]);
+    }
+
+    function isFlagged(res: any): boolean {
+      if (!res) return false;
+      var score = Number(res.score);
+      if (isNaN(score)) score = 0;
+      var label = res.label ? String(res.label) : 'HAM';
+      var tactic = res.tactic ? String(res.tactic) : '';
+      var scamSignal = (label === 'SCAM') || (tactic && tactic.indexOf('SCAM_') === 0);
+      return scamSignal && score >= thr;
+    }
+
+    function tacticColor(res: any, fallback: string): string {
+      if (!res) return fallback;
+
+      var tactic = res.tactic ? String(res.tactic) : '';
+      if (!tactic) return isFlagged(res) ? '#ff1100' : fallback;
+
+      if (tactic === 'SCAM_FUNNEL') return '#f59e0b';
+      if (tactic === 'SCAM_CRYPTO') return '#a855f7';
+      if (tactic === 'SCAM_ADULT') return '#ec4899';
+      if (tactic.indexOf('SCAM_') === 0) return '#ff1100';
+      return fallback;
+    }
+
+    var visualScamCount = 0;
+
+    // raise only flagged
+    var scams = this.node.filter((d: any) => {
+      var res = resultsMap.get(d.rawCircleData.id);
+      return isFlagged(res);
+    });
+    scams.raise();
+
+    this.node.transition()
+      .duration(600)
+      .style('fill', (d: any) => {
+        var res = resultsMap.get(d.rawCircleData.id);
+        return tacticColor(res, d.color);
+      })
+      .style('opacity', (d: any) => {
+        var res = resultsMap.get(d.rawCircleData.id);
+        if (!res) return 1;
+        var score = Number(res.score);
+        if (isNaN(score)) score = 0;
+
+        // opacity reflects confidence
+        if (isFlagged(res)) return Math.min(1, 0.35 + 0.65 * score);
+        return 0.12; // dim non-flagged while SSB is on
+      })
+      .attr('r', (d: any) => {
+        var res = resultsMap.get(d.rawCircleData.id);
+        if (!res) return d.radius;
+
+        var score = Number(res.score);
+        if (isNaN(score)) score = 0;
+
+        // bump only for high confidence
+        if (isFlagged(res) && score >= 0.90) {
+          visualScamCount++;
+          return Math.max(d.radius * 2.2, 10);
+        }
+        if (isFlagged(res)) {
+          visualScamCount++;
+          return Math.max(d.radius * 1.2, 6);
+        }
+        return d.radius;
+      })
+      .style('stroke', (d: any) => {
+        var res = resultsMap.get(d.rawCircleData.id);
+        return isFlagged(res) ? '#ffffff' : 'none';
+      })
+      .style('stroke-width', (d: any) => {
+        var res = resultsMap.get(d.rawCircleData.id);
+        return isFlagged(res) ? 1.5 : 0;
       });
 
-      let visualScamCount = 0;
-
-      // 1. Filter the nodes that are actually scams
-      const scams = this.node.filter((d: any) => {
-        const res = resultsMap.get(d.rawCircleData.id);
-        return res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
-      });
-
-      // 2. Bring only the scam circles to the top layer
-      scams.raise();
-
-      // 3. Apply the visual transition
-      this.node.transition()
-        .duration(1000)
-        .style('fill', (d: any) => {
-          const res = resultsMap.get(d.rawCircleData.id);
-          if (!res) return d.color;
-          const isScam = res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM'));
-          if (isScam) visualScamCount++;
-          return isScam ? '#ff1100' : '#4ade80';
-        })
-        .style('opacity', (d: any) => {
-          const res = resultsMap.get(d.rawCircleData.id);
-          const isScam = res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
-          // GHOST EFFECT: Dim safe comments so scams stand out
-          return isScam ? 1 : 0.15; 
-        })
-        .attr('r', (d: any) => {
-          const res = resultsMap.get(d.rawCircleData.id);
-          const isScam = res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
-          return isScam ? Math.max(d.radius * 3, 12) : d.radius;
-        })
-        .style('stroke', (d: any) => {
-          const res = resultsMap.get(d.rawCircleData.id);
-          const isScam = res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
-          return isScam ? '#ffffff' : 'none'; 
-        })
-        .style('stroke-width', (d: any) => {
-          const res = resultsMap.get(d.rawCircleData.id);
-          const isScam = res && (res.label === 'SCAM' || (typeof res.label === 'string' && res.label.startsWith('SCAM')));
-          return isScam ? 2 : 0;
-        });
-
-      console.log(`🎨 UI Update: Coloring ${visualScamCount} circles red.`);
-}
+    console.log('🎨 UI Update: Coloring ' + visualScamCount + ' circles flagged.');
+  }
 
   /** Reloads the circles on the canvas UI. */
   private redrawConcentricCircles(): void {

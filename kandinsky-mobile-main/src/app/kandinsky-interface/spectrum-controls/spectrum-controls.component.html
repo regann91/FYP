@@ -4,9 +4,17 @@
       <ion-label>SSB Visualisation</ion-label>
       <ion-toggle slot="end" (ionChange)="onSSBToggle($event)"></ion-toggle>
     </ion-item>
-    <ion-button size="small" (click)="exportScams.emit()">
+    <!-- <ion-button size="small" (click)="exportScams.emit()">
+      Export scams CSV
+    </ion-button> -->
+    <ion-button size="small" (click)="openInsights.emit()">
+      SSB Insights
+    </ion-button>
+
+    <ion-button size="small" (click)="exportCSV.emit()">
       Export scams CSV
     </ion-button>
+
 
 
     <div class="p-2 spectrum-controls-container">

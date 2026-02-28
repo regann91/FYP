@@ -31,6 +31,10 @@ export class SpectrumControlsComponent implements OnInit, OnChanges {
   @Output() 
   exportScams = new EventEmitter<void>();
 
+  @Output() openInsights: EventEmitter<void> = new EventEmitter<void>();
+  @Output() exportCSV: EventEmitter<void> = new EventEmitter<void>();
+
+
 
   private componentContainer: Selection<SVGGElement, any, HTMLElement, any>;
 

@@ -27,7 +27,10 @@ export class KandinskyInterfacePage implements OnInit {
   protected isSSBEnabled: boolean = false;
 
   // Store results by comment id
-  private ssbByCommentId = new Map<string, { label: 'SCAM' | 'HAM'; score: number }>();
+  //private ssbByCommentId = new Map<string, { label: 'SCAM' | 'HAM'; score: number }>();
+  private ssbThreshold: number = 0.85;
+  private ssbStats: SSBStats = null;
+  private ssbByCommentId = new Map<string, SSBResult>();
 
   // active post data
   protected post: SocialPost;
@@ -54,6 +57,10 @@ export class KandinskyInterfacePage implements OnInit {
   protected isSearchFocusModeOn: boolean = SEARCH_DEFAULT_MODE;
   protected searchQuery: string = SEARCH_DEFAULT_QUERY;
   private searchResult: SearchResult;
+  protected searchResultIds: string[] = [];
+  protected searchResultCount: number = 0;
+  protected currentSearchIndex: number = 0;
+
 
   // detailed comment section params
   protected isShowCommentsOn: boolean = SHOW_COMMENTS_DEFAULT;
@@ -313,10 +320,8 @@ export class KandinskyInterfacePage implements OnInit {
    */
   protected search(query: string = ""): void {
     console.time('keyword search');
-
     this.isSearchFocusModeOn = query.length > 0;
     this.searchResult = this.kandinskyService.searchComments(query);
-
     this.canvas.setFocused(Object.keys(this.searchResult));
 
     // update the highlightOptions of visible comments
@@ -347,6 +352,41 @@ export class KandinskyInterfacePage implements OnInit {
       });
     
     console.timeEnd('keyword search');
+
+    this.searchResultIds = Object.keys(this.searchResult);              // list of all comment IDs that matched:contentReference[oaicite:6]{index=6}
+    this.searchResultCount = this.searchResultIds.length;
+    if (this.searchResultCount > 0) {
+      this.currentSearchIndex = 0;
+      const firstId = this.searchResultIds[0];
+      const pivotId = this.findPivotId(firstId);
+      this.selectConcentricCircle(pivotId, firstId);  // open the thread and scroll to the first matching comment:contentReference[oaicite:7]{index=7}
+    }
+  }
+  // Helper to get the pivot (root comment) ID for a given comment ID
+  private findPivotId(commentId: string): string {
+    const allComments = this.kandinskyService.getActivePostComments();
+    let comment = allComments.find(c => c.id === commentId);
+    while (comment && comment.parentCommentId) {
+      comment = allComments.find(c => c.id === comment.parentCommentId);
+    }
+    return comment ? comment.id : commentId;
+  }
+  // Navigate to the next search result
+  protected nextSearchResult(): void {
+    if (!this.searchResultCount) return;
+    this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchResultCount;  // wrap around
+    const nextId = this.searchResultIds[this.currentSearchIndex];
+    const pivotId = this.findPivotId(nextId);
+    this.selectConcentricCircle(pivotId, nextId);  // select thread & scroll to next match
+  }
+
+  // Navigate to the previous search result
+  protected prevSearchResult(): void {
+    if (!this.searchResultCount) return;
+    this.currentSearchIndex = (this.currentSearchIndex - 1 + this.searchResultCount) % this.searchResultCount;
+    const prevId = this.searchResultIds[this.currentSearchIndex];
+    const pivotId = this.findPivotId(prevId);
+    this.selectConcentricCircle(pivotId, prevId);
   }
 
   /**
@@ -360,6 +400,107 @@ export class KandinskyInterfacePage implements OnInit {
       this.timelineControls.pause();
     }
   }
+
+  private getTextPreview(text: string): string {
+    var t = text ? String(text) : '';
+    t = t.replace(/\s+/g, ' ').trim();
+    if (t.length > 160) return t.slice(0, 160) + '…';
+    return t;
+  }
+
+  private isSSBFlagged(res: SSBResult, threshold: number): boolean {
+    if (!res) return false;
+
+    // Your API contract: label is SCAM/HAM; tactic may be SCAM_FUNNEL etc.
+    var label = res.label ? String(res.label) : 'HAM';
+    var tactic = res.tactic ? String(res.tactic) : '';
+    var score = Number(res.score);
+
+    if (isNaN(score)) score = 0;
+
+    var isScamSignal = (label === 'SCAM') || (tactic && tactic.indexOf('SCAM_') === 0);
+    return isScamSignal && score >= threshold;
+  }
+
+  private buildSSBStats(comments: SocialComment[], results: SSBResult[], threshold: number): SSBStats {
+    var total = comments ? comments.length : 0;
+    var flagged = 0;
+
+    var byTactic: { [k: string]: number } = {};
+    var byRuleTag: { [k: string]: number } = {};
+
+    // score histogram bins
+    var bins: SSBHistogramBin[] = [];
+    var binCount = 10;
+    for (var b = 0; b < binCount; b++) {
+      var start = b / binCount;
+      var end = (b + 1) / binCount;
+      bins.push({ start: start, end: end, count: 0 });
+    }
+
+    var reviewQueue: SSBReviewRow[] = [];
+
+    var n = Math.min(comments.length, results.length);
+    for (var i = 0; i < n; i++) {
+      var c = comments[i];
+      var r = results[i];
+      if (!c || !r) continue;
+
+      var score = Number(r.score);
+      if (isNaN(score)) score = 0;
+
+      // histogram
+      var idx = Math.max(0, Math.min(binCount - 1, Math.floor(score * binCount)));
+      bins[idx].count += 1;
+
+      var isFlagged = this.isSSBFlagged(r, threshold);
+      if (!isFlagged) continue;
+
+      flagged += 1;
+
+      var tactic = r.tactic ? String(r.tactic) : '';
+      if (!tactic) tactic = (r.label === 'SCAM') ? 'SCAM' : 'UNKNOWN';
+
+      if (!byTactic[tactic]) byTactic[tactic] = 0;
+      byTactic[tactic] += 1;
+
+      var tags = r.debug && r.debug.rule_tags ? r.debug.rule_tags : [];
+      if (tags && tags.length) {
+        for (var t = 0; t < tags.length; t++) {
+          var tag = String(tags[t]);
+          if (!byRuleTag[tag]) byRuleTag[tag] = 0;
+          byRuleTag[tag] += 1;
+        }
+      }
+
+      reviewQueue.push({
+        commentId: c.id,
+        author: c.authorName,
+        publishTimestamp: c.publishTimestamp,
+        score: score,
+        tactic: tactic,
+        label: r.label,
+        preview: this.getTextPreview(c.content)
+      });
+    }
+
+    // sort review queue by score desc
+    reviewQueue.sort((a, b) => (b.score - a.score));
+
+    // keep list manageable for UI
+    if (reviewQueue.length > 300) reviewQueue = reviewQueue.slice(0, 300);
+
+    return {
+      total: total,
+      flagged: flagged,
+      threshold: threshold,
+      byTactic: byTactic,
+      byRuleTag: byRuleTag,
+      scoreHistogram: bins,
+      reviewQueue: reviewQueue
+    };
+  }
+
 
   private csvEscape(value: any): string {
     const s = value === null || value === undefined ? '' : String(value);
@@ -399,7 +540,7 @@ export class KandinskyInterfacePage implements OnInit {
       const score = Number(r.score);
 
       // Keep consistent with your canvas logic:
-      const isScam = label === 'SCAM' || (typeof label === 'string' && label.startsWith('SCAM'));
+      var isScam = this.isSSBFlagged(r as any, this.ssbThreshold);
       if (!isScam) continue;
 
       const row = [
@@ -451,28 +592,31 @@ export class KandinskyInterfacePage implements OnInit {
     console.log(`SSB: sending ${texts.length} comments to backend`);
 
     this.scamBotService.analyzeComments(texts).subscribe({
-      next: (results: { label: 'SCAM' | 'HAM'; score: number }[]) => {
-        // Save for export
+      next: (results: SSBResult[]) => {
         this.lastSSBComments = allComments;
         this.lastSSBResults = results;
-        // Map results back to comment ids by index
+
+        // store full results by comment id
         this.ssbByCommentId.clear();
-        for (let i = 0; i < results.length; i++) {
-          const id = allComments[i] && allComments[i].id ? allComments[i].id : null;
-          if (id) this.ssbByCommentId.set(id, results[i]);
+        for (var i = 0; i < results.length; i++) {
+          var c = allComments[i];
+          if (c && c.id) this.ssbByCommentId.set(c.id, results[i]);
         }
 
-        // Re-apply visibility now that we have results
-        this.refreshContextsVisibility();
+        // compute stats at current threshold
+        this.ssbStats = this.buildSSBStats(this.lastSSBComments, this.lastSSBResults, this.ssbThreshold);
 
-        // Optional: if your canvas supports overlays
-        // (only do this if applyScamScores expects the same ordering)
+        // apply overlay with threshold
         if (this.canvas) {
-          this.canvas.applyScamScores(results as any);
+          this.canvas.applyScamScores(results as any, this.ssbThreshold);
         }
+
+        // refresh list visibility (uses passesSSB)
+        this.refreshContextsVisibility();
 
         console.log('SSB: results applied');
       },
+
       error: (err) => {
         console.error('SSB: analyzeComments failed', err);
       }
@@ -485,11 +629,6 @@ export class KandinskyInterfacePage implements OnInit {
 
     // Reset visibility
     this.refreshContextsVisibility();
-
-    // Optional: clear canvas overlay
-    if (this.canvas) {
-      this.canvas.applyScamScores([]);
-    }
   }
 
   /**
@@ -533,6 +672,34 @@ export class KandinskyInterfacePage implements OnInit {
     setTimeout(() => this.updateCommentContexts());
   }
 
+  protected async openSSBInsights(): Promise<void> {
+    if (!this.ssbStats) {
+      console.warn('SSB Insights: no stats yet (run SSB first).');
+      return;
+    }
+
+    const modal = await this.modalController.create({
+      component: (await import('../ssb-insights-modal/ssb-insights-modal.component')).SSBInsightsModalComponent as any,
+      componentProps: {
+        stats: this.ssbStats,
+        threshold: this.ssbThreshold,
+        onThresholdChange: (t: number) => {
+          this.ssbThreshold = t;
+          this.ssbStats = this.buildSSBStats(this.lastSSBComments, this.lastSSBResults, this.ssbThreshold);
+
+          if (this.canvas) this.canvas.applyScamScores(this.lastSSBResults as any, this.ssbThreshold);
+          this.refreshContextsVisibility();
+        },
+        onSelectComment: (commentId: string) => this.onSelectSSBReviewComment(commentId),
+        onExportCSV: () => this.downloadSSBScamsCSV()
+      },
+      cssClass: 'auto-sized-modal'
+    });
+
+    await modal.present();
+  }
+
+
   /**
    * Constructs UI context data for a comment.
    * @param circleDatum Comment to construct UI context data for.
@@ -567,7 +734,7 @@ export class KandinskyInterfacePage implements OnInit {
         id: `comment-${comment.id}`,
         comment: comment,
         display: {
-          visible: forceVisibility || (this.canvas.shouldDisplayCircle(circleDatum) && this.passesSSB(comment.id)),
+          visible: forceVisibility || (this.canvas.shouldDisplayCircle(circleDatum) && this.passesSSB(comment.id) || searchResult !== null),
           showLines: showLines,
           highlightOptions: [
             {
@@ -604,10 +771,40 @@ export class KandinskyInterfacePage implements OnInit {
   }
   private passesSSB(commentId: string): boolean {
     if (!this.isSSBEnabled) return true;
-    const ssb = this.ssbByCommentId.get(commentId);
-    if (!ssb) return true;           // not computed yet
-    return ssb.label === 'SCAM';
+    var res = this.ssbByCommentId.get(commentId);
+    if (!res) return true; // not computed yet
+    return this.isSSBFlagged(res, this.ssbThreshold);
   }
+
+  private onSelectSSBReviewComment(commentId: string): void {
+    if (this.canvas) this.canvas.focusCommentById(commentId);
+    // also scroll the comment list if it exists
+    scrollToElement('comment-' + commentId);
+  }
+
+  public getSSBResultForComment(commentId: string): any {
+    if (!commentId) return null;
+    var r = this.ssbByCommentId.get(commentId);
+    if (!r) return null;
+
+    var score = Number(r.score);
+    if (isNaN(score)) score = 0;
+
+    var tactic = r.tactic ? String(r.tactic) : '';
+    var ruleTags = (r.debug && r.debug.rule_tags) ? r.debug.rule_tags : [];
+    var mlProb = (r.debug && typeof r.debug.ml_scam_prob === 'number') ? r.debug.ml_scam_prob : null;
+
+    return {
+      label: r.label,
+      score: score,
+      tactic: tactic,
+      ruleTags: ruleTags,
+      mlProb: mlProb,
+      flagged: this.isSSBFlagged(r, this.ssbThreshold)
+    };
+  }
+
+
 
   /** Updates the comments information when changes are made to their visibility. */
   private updateCommentContexts(): void {
@@ -646,9 +843,8 @@ export class KandinskyInterfacePage implements OnInit {
     const ssb = commentId ? this.ssbByCommentId.get(commentId) : null;
 
     // While results are not ready, keep it visible (so UI doesn't go blank)
-    const passesSSB = !ssb ? true : (ssb.label === 'SCAM');
-
-    commentItemContext.context.display.visible = baseVisible && passesSSB;
+    const hasSearchMatch = this.searchResult && this.searchResult[commentId] ? true : false;
+    commentItemContext.context.display.visible = baseVisible && (this.passesSSB(commentId) || hasSearchMatch);
   });
 
 
@@ -727,6 +923,38 @@ export class KandinskyInterfacePage implements OnInit {
   }
   
 }
+type SSBResult = {
+  label: 'SCAM' | 'HAM';
+  score: number;
+  tactic?: string | null;
+  debug?: {
+    rule_score?: number;
+    rule_tags?: string[];
+    ml_scam_prob?: number;
+  };
+};
+
+type SSBReviewRow = {
+  commentId: string;
+  author: string;
+  publishTimestamp: number;
+  score: number;
+  tactic: string;
+  label: string;
+  preview: string;
+};
+
+type SSBHistogramBin = { start: number; end: number; count: number };
+
+type SSBStats = {
+  total: number;
+  flagged: number;
+  threshold: number;
+  byTactic: { [k: string]: number };
+  byRuleTag: { [k: string]: number };
+  scoreHistogram: SSBHistogramBin[];
+  reviewQueue: SSBReviewRow[];
+};
 
 /** Represents UI data for a comment. */
 type CommentItemContext = {
