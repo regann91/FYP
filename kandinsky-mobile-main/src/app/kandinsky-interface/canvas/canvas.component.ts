@@ -754,7 +754,7 @@ export class CanvasComponent implements OnInit, OnChanges {
       if (!tactic) return isFlagged(res) ? '#ff1100' : fallback;
 
       if (tactic === 'SCAM_FUNNEL') return '#f59e0b';
-      if (tactic === 'SCAM_CRYPTO') return '#a855f7';
+      if (tactic === 'SCAM_CRYPTO') return '#ff0066';
       if (tactic === 'SCAM_ADULT') return '#ec4899';
       if (tactic.indexOf('SCAM_') === 0) return '#ff1100';
       return fallback;

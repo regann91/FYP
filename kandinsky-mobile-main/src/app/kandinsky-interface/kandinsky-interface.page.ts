@@ -32,6 +32,14 @@ export class KandinskyInterfacePage implements OnInit {
   private ssbStats: SSBStats = null;
   private ssbByCommentId = new Map<string, SSBResult>();
 
+  // scam comment navigation (mirrors search navigation)
+  protected scamCommentIds: string[] = [];
+  protected currentScamIndex: number = -1;
+
+  // SSB signal breakdown popover
+  protected ssbSignalPopoverCommentId: string | null = null;
+  protected ssbSignalPopoverOpen: boolean = false;
+
   // active post data
   protected post: SocialPost;
 
@@ -51,6 +59,14 @@ export class KandinskyInterfacePage implements OnInit {
   private NUM_GROUPS: number = NUM_GROUPS;
   private lastSSBComments: SocialComment[] = [];
   private lastSSBResults: any[] = [];
+  protected allowedScamCategories: Set<string> = new Set<string>([
+    'SCAM_CRYPTO',
+    'SCAM_ADULT',
+    'SCAM_FUNNEL',
+    'SCAM_ROMANCE',
+    'SCAM_GIVEAWAY',
+    'SCAM_BOT'
+  ]);
 
 
   // search params
@@ -396,6 +412,43 @@ export class KandinskyInterfacePage implements OnInit {
     this.selectConcentricCircle(pivotId, prevId);
   }
 
+  /** Navigate to the previous scam comment (from review queue navigation). */
+  protected goToPrevScam(): void {
+    if (!this.scamCommentIds.length) return;
+    if (this.currentScamIndex <= 0) {
+      this.currentScamIndex = this.scamCommentIds.length - 1;
+    } else {
+      this.currentScamIndex--;
+    }
+    this.goToScamComment(this.scamCommentIds[this.currentScamIndex]);
+  }
+
+  /** Navigate to the next scam comment (from review queue navigation). */
+  protected goToNextScam(): void {
+    if (!this.scamCommentIds.length) return;
+    if (this.currentScamIndex >= this.scamCommentIds.length - 1) {
+      this.currentScamIndex = 0;
+    } else {
+      this.currentScamIndex++;
+    }
+    this.goToScamComment(this.scamCommentIds[this.currentScamIndex]);
+  }
+
+  private goToScamComment(commentId: string): void {
+    const comments = this.kandinskyService.getActivePostComments();
+    const target = comments.find(c => c.id === commentId);
+    if (!target) return;
+    let pivotId = target.id;
+    let parentId = target.parentCommentId;
+    while (parentId) {
+      const parent = comments.find(c => c.id === parentId);
+      if (!parent) break;
+      pivotId = parent.id;
+      parentId = parent.parentCommentId;
+    }
+    this.selectConcentricCircle(pivotId, commentId);
+  }
+
   protected goToPrevMatch(): void {
     if (!this.searchResultIds.length) return;
     // Wrap to last match if at beginning or none selected yet
@@ -633,16 +686,36 @@ export class KandinskyInterfacePage implements OnInit {
     }
   }
 
-  private runSSBVisualisation(): void {
+  private async runSSBVisualisation(): Promise<void> {
     // Use the same source of truth as your UI contexts
     const allComments: SocialComment[] = this.kandinskyService.getActivePostComments();
     console.log(`SSB: sending ${allComments.length} comments to backend`);
-
+    // Check for cached results first
+    // const videoID = this.post.id;
+    // const cachedResults = await this.scamBotService.getCachedResults(videoID);
+    // if (cachedResults && cachedResults.length > 0){
+    //   this.lastSSBComments = allComments;
+    //   this.lastSSBResults = cachedResults;
+    //   this.ssbByCommentId.clear();
+    //   for (let i = 0; i < cachedResults.length; i++){
+    //     const c = allComments[i];
+    //     if (c && c.id) this.ssbByCommentId.set(c.id, cachedResults[i]);
+    //   }
+    //   this.ssbStats = this.buildSSBStats(this.lastSSBComments, this.lastSSBResults, this.ssbThreshold);
+    //   if (this.canvas){
+    //     this.canvas.applyScamScores(this.lastSSBComments as any, this.ssbThreshold);
+    //   }
+    //   this.refreshContextsVisibility();
+    //   console.log('SSB: results applied from cache');
+    //   return;
+    // }
+    const loading = await createLoading(this.loadingController, "Analyzing comments...");
+    await loading.present();
     this.scamBotService.analyzeComments(allComments).subscribe({
       next: (results: SSBResult[]) => {
         this.lastSSBComments = allComments;
         this.lastSSBResults = results;
-
+        loading.dismiss();
         // store full results by comment id
         this.ssbByCommentId.clear();
         for (var i = 0; i < results.length; i++) {
@@ -653,6 +726,10 @@ export class KandinskyInterfacePage implements OnInit {
         // compute stats at current threshold
         this.ssbStats = this.buildSSBStats(this.lastSSBComments, this.lastSSBResults, this.ssbThreshold);
 
+        // build ordered scam comment ID list for prev/next navigation
+        this.scamCommentIds = this.ssbStats.reviewQueue.map(r => r.commentId);
+        this.currentScamIndex = -1;
+
         // apply overlay with threshold
         if (this.canvas) {
           this.canvas.applyScamScores(results as any, this.ssbThreshold);
@@ -662,10 +739,12 @@ export class KandinskyInterfacePage implements OnInit {
         this.refreshContextsVisibility();
 
         console.log('SSB: results applied');
+        // this.scamBotService.cacheResults(videoID, results);
       },
 
       error: (err) => {
         console.error('SSB: analyzeComments failed', err);
+        loading.dismiss();
       }
     });
   }
@@ -673,8 +752,18 @@ export class KandinskyInterfacePage implements OnInit {
   private disableSSBVisualisation(): void {
     this.isSSBEnabled = false;
     this.ssbByCommentId.clear();
+    this.ssbStats = null;
+    this.scamCommentIds = [];
+    this.currentScamIndex = -1;
+    this.ssbSignalPopoverOpen = false;
+    this.ssbSignalPopoverCommentId = null;
 
-    // Reset visibility
+    // Reset canvas scam overlay — pass empty results so no circles stay highlighted
+    if (this.canvas) {
+      this.canvas.applyScamScores([], this.ssbThreshold);
+    }
+
+    // Reset visibility (all comments become visible again)
     this.refreshContextsVisibility();
   }
 
@@ -730,9 +819,12 @@ export class KandinskyInterfacePage implements OnInit {
       componentProps: {
         stats: this.ssbStats,
         threshold: this.ssbThreshold,
+        allowedCategories: this.allowedScamCategories, // Add this line
         onThresholdChange: (t: number) => {
           this.ssbThreshold = t;
           this.ssbStats = this.buildSSBStats(this.lastSSBComments, this.lastSSBResults, this.ssbThreshold);
+          this.scamCommentIds = this.ssbStats.reviewQueue.map(r => r.commentId);
+          this.currentScamIndex = -1;
 
           if (this.canvas) this.canvas.applyScamScores(this.lastSSBResults as any, this.ssbThreshold);
           this.refreshContextsVisibility();
@@ -818,15 +910,23 @@ export class KandinskyInterfacePage implements OnInit {
   }
   private passesSSB(commentId: string): boolean {
     if (!this.isSSBEnabled) return true;
-    var res = this.ssbByCommentId.get(commentId);
+    const res = this.ssbByCommentId.get(commentId);
     if (!res) return true; // not computed yet
+    const tactic = res.tactic ? String(res.tactic) : '';
+    // Filter out scams whose tactic is not in allowed set
+    if(!this.allowedScamCategories.has(tactic)){
+      return false;
+    }
     return this.isSSBFlagged(res, this.ssbThreshold);
   }
 
   private onSelectSSBReviewComment(commentId: string): void {
     if (this.canvas) this.canvas.focusCommentById(commentId);
-    // also scroll the comment list if it exists
     scrollToElement('comment-' + commentId);
+    // sync nav index so prev/next picks up from here
+    const idx = this.scamCommentIds.indexOf(commentId);
+    if (idx !== -1) this.currentScamIndex = idx;
+    this.goToScamComment(commentId);
   }
 
   public getSSBResultForComment(commentId: string): any {
@@ -849,6 +949,50 @@ export class KandinskyInterfacePage implements OnInit {
       mlProb: mlProb,
       flagged: this.isSSBFlagged(r, this.ssbThreshold)
     };
+  }
+
+  /** Returns human-readable signal descriptions for a comment's SSB result. */
+  public getSSBSignals(commentId: string): Array<{ signal: string; description: string }> {
+    if (!commentId) return [];
+    const r = this.ssbByCommentId.get(commentId);
+    if (!r) return [];
+
+    const SIGNAL_LABELS: { [k: string]: string } = {
+      'account_very_new_<30d':              'Account created less than 30 days ago',
+      'account_new_<90d':                   'Account created less than 90 days ago',
+      'zero_subscribers':                   'Channel has zero subscribers',
+      'zero_videos':                        'Channel has no uploaded videos',
+      'zero_likes_new_account':             'No likes received, posted from a new account',
+      'duplicate_text_across_authors':      'Identical comment text posted by multiple authors',
+      'duplicate_tail_across_authors':      'Identical ending phrase posted by multiple authors',
+      'incoherent_tail':                    'Final sentence is semantically unrelated to the comment body',
+      'burst_timing_new_accounts':          'Posted in a coordinated burst with other new accounts',
+      'collusion_reply_between_new_accounts': 'Reply chain between two new or suspicious accounts',
+      'explicit_profile_picture':           'Profile picture flagged as explicit content',
+    };
+
+    const signals: string[] = (r as any).signals || (r.debug && (r.debug as any).signals) || [];
+    return signals.map(s => ({
+      signal: s,
+      description: SIGNAL_LABELS[s] || s
+    }));
+  }
+
+  /** Toggle the SSB signal breakdown popover for a comment. */
+  protected toggleSSBSignalPopover(commentId: string, event: Event): void {
+    event.stopPropagation();
+    if (this.ssbSignalPopoverCommentId === commentId && this.ssbSignalPopoverOpen) {
+      this.ssbSignalPopoverOpen = false;
+      this.ssbSignalPopoverCommentId = null;
+    } else {
+      this.ssbSignalPopoverCommentId = commentId;
+      this.ssbSignalPopoverOpen = true;
+    }
+  }
+
+  protected closeSSBSignalPopover(): void {
+    this.ssbSignalPopoverOpen = false;
+    this.ssbSignalPopoverCommentId = null;
   }
 
 
@@ -974,6 +1118,7 @@ type SSBResult = {
   label: 'SCAM' | 'HAM';
   score: number;
   tactic?: string | null;
+  signals?: string[];
   debug?: {
     rule_score?: number;
     rule_tags?: string[];

@@ -147,6 +147,17 @@
           <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToNextMatch()">
             <ion-icon name="arrow-forward"></ion-icon>
           </ion-button>
+          <ng-container *ngIf="isSSBEnabled && scamCommentIds.length > 0 && searchQuery.length === 0">
+            <ion-button fill="clear" color="danger" size="small" (click)="goToPrevScam()">
+              <ion-icon name="arrow-back"></ion-icon>
+            </ion-button>
+            <ion-text color="danger" style="font-size: 11px; align-self: center;">
+              {{ currentScamIndex >= 0 ? currentScamIndex + 1 : '?' }}/{{ scamCommentIds.length }}
+            </ion-text>
+            <ion-button fill="clear" color="danger" size="small" (click)="goToNextScam()">
+              <ion-icon name="arrow-forward"></ion-icon>
+            </ion-button>
+          </ng-container>
           <ion-button fill="clear" color="medium" size="small" (click)="canvas.select()">
             <ion-icon name="close"></ion-icon>
           </ion-button>
@@ -207,14 +218,36 @@
       <p [innerHTML]="context.comment.content | highlight : context.display.highlightOptions | sanitizeHtml"></p>
       <div *ngIf="isSSBEnabled">
         <div *ngIf="getSSBResultForComment(context.comment.id) as ssb" class="ssb-explain">
-          <ion-chip [color]="ssb.flagged ? 'danger' : 'success'" size="small">
-            {{ ssb.flagged ? 'SCAM' : 'HAM' }} • {{ ssb.score | number:'1.2-2' }}
+          <ion-chip
+            [color]="ssb.flagged ? 'danger' : 'success'"
+            size="small"
+            [class.ssb-chip-clickable]="ssb.flagged"
+            (click)="ssb.flagged ? toggleSSBSignalPopover(context.comment.id, $event) : null">
+            {{ ssb.flagged ? 'SCAM' : 'HAM' }} • {{ ssb.score | number:'1.0-0' }}
+            <ion-icon *ngIf="ssb.flagged" name="information-circle-outline" style="margin-left: 4px; font-size: 14px;"></ion-icon>
           </ion-chip>
+
+          <!-- Inline signal breakdown panel, shown on chip click -->
+          <div class="ssb-signals-panel" *ngIf="ssb.flagged && ssbSignalPopoverCommentId === context.comment.id && ssbSignalPopoverOpen">
+            <div class="ssb-signals-header">
+              <small><b>Why flagged?</b></small>
+              <ion-button fill="clear" size="small" color="medium" (click)="closeSSBSignalPopover()">
+                <ion-icon slot="icon-only" name="close" style="font-size: 14px;"></ion-icon>
+              </ion-button>
+            </div>
+            <div class="ssb-signals-tactic">
+              <small class="text-muted">Tactic: <b>{{ ssb.tactic || '—' }}</b> &nbsp;|&nbsp; Score: <b>{{ ssb.score }}</b></small>
+            </div>
+            <ul class="ssb-signals-list">
+              <li *ngFor="let sig of getSSBSignals(context.comment.id)">
+                <small>{{ sig.description }}</small>
+              </li>
+            </ul>
+          </div>
 
           <div class="ssb-meta">
             <small class="text-muted">
-              Tactic: {{ ssb.tactic ? ssb.tactic : '-' }}
-              • Tags: {{ ssb.ruleTags && ssb.ruleTags.length ? ssb.ruleTags.join(', ') : '-' }}
+              Tags: {{ ssb.ruleTags && ssb.ruleTags.length ? ssb.ruleTags.join(', ') : '-' }}
               • ML: {{ ssb.mlProb !== null ? (ssb.mlProb | number:'1.2-2') : '-' }}
             </small>
           </div>
