@@ -59,7 +59,8 @@ export class KandinskyInterfacePage implements OnInit {
   private searchResult: SearchResult;
   protected searchResultIds: string[] = [];
   protected searchResultCount: number = 0;
-  protected currentSearchIndex: number = 0;
+  protected currentSearchIndex: number = -1;
+
 
 
   // detailed comment section params
@@ -353,8 +354,14 @@ export class KandinskyInterfacePage implements OnInit {
     
     console.timeEnd('keyword search');
 
-    this.searchResultIds = Object.keys(this.searchResult);              // list of all comment IDs that matched:contentReference[oaicite:6]{index=6}
-    this.searchResultCount = this.searchResultIds.length;
+    // Prepare list of matching comment IDs for navigation
+    this.searchResultIds = this.kandinskyService.getActivePostComments()
+      .filter(c => this.searchResult[c.id] !== undefined)
+      .map(c => c.id);
+    this.currentSearchIndex = -1;
+
+    // this.searchResultIds = Object.keys(this.searchResult);              // list of all comment IDs that matched:contentReference[oaicite:6]{index=6}
+    // this.searchResultCount = this.searchResultIds.length;
     if (this.searchResultCount > 0) {
       this.currentSearchIndex = 0;
       const firstId = this.searchResultIds[0];
@@ -388,6 +395,48 @@ export class KandinskyInterfacePage implements OnInit {
     const pivotId = this.findPivotId(prevId);
     this.selectConcentricCircle(pivotId, prevId);
   }
+
+  protected goToPrevMatch(): void {
+    if (!this.searchResultIds.length) return;
+    // Wrap to last match if at beginning or none selected yet
+    if (this.currentSearchIndex === -1 || this.currentSearchIndex <= 0) {
+      this.currentSearchIndex = this.searchResultIds.length - 1;
+    } else {
+      this.currentSearchIndex--;
+    }
+    const commentId = this.searchResultIds[this.currentSearchIndex];
+    this.goToSearchResult(commentId);
+  }
+
+  protected goToNextMatch(): void {
+    if (!this.searchResultIds.length) return;
+    // Wrap to first match if at end or none selected yet
+    if (this.currentSearchIndex === -1 || this.currentSearchIndex >= this.searchResultIds.length - 1) {
+      this.currentSearchIndex = 0;
+    } else {
+      this.currentSearchIndex++;
+    }
+    const commentId = this.searchResultIds[this.currentSearchIndex];
+    this.goToSearchResult(commentId);
+  }
+
+  private goToSearchResult(commentId: string): void {
+    // Find the comment and its top-level parent (pivot) ID
+    const comments = this.kandinskyService.getActivePostComments();
+    const targetComment = comments.find(c => c.id === commentId);
+    if (!targetComment) return;
+    let pivotCommentId = targetComment.id;
+    let parentId = targetComment.parentCommentId;
+    while (parentId) {
+      const parentComment = comments.find(c => c.id === parentId);
+      if (!parentComment) break;
+      pivotCommentId = parentComment.id;
+      parentId = parentComment.parentCommentId;
+    }
+    // Select the pivot comment thread and scroll to the target comment
+    this.selectConcentricCircle(pivotCommentId, commentId);
+  }
+    
 
   /**
    * Sets the search focus mode.
@@ -587,11 +636,9 @@ export class KandinskyInterfacePage implements OnInit {
   private runSSBVisualisation(): void {
     // Use the same source of truth as your UI contexts
     const allComments: SocialComment[] = this.kandinskyService.getActivePostComments();
-    const texts = allComments.map(c => ((c && c.content) ? c.content : '').slice(0, 512));
+    console.log(`SSB: sending ${allComments.length} comments to backend`);
 
-    console.log(`SSB: sending ${texts.length} comments to backend`);
-
-    this.scamBotService.analyzeComments(texts).subscribe({
+    this.scamBotService.analyzeComments(allComments).subscribe({
       next: (results: SSBResult[]) => {
         this.lastSSBComments = allComments;
         this.lastSSBResults = results;

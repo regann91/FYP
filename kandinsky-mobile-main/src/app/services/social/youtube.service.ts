@@ -275,6 +275,8 @@ export class YoutubeService extends SocialService {
       parentCommentId: null,
       parentAuthorName: null,
       postId: null,
+      authorChannelId: (platformCommentData.snippet.authorChannelId && platformCommentData.snippet.authorChannelId.value) || null,
+      authorProfileImageUrl: platformCommentData.snippet.authorProfileImageUrl || null,
       raw: platformCommentData
     }
   }
