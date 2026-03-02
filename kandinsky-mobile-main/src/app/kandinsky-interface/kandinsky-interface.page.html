@@ -37,7 +37,7 @@
           (ionBlur)="setIsSearchFocusOn(false)"
           (ionClear)="search()">
         </ion-searchbar>
-        <div class="search-results-overlay px-4 py-1" *ngIf="isSearchFocusModeOn && searchResultCount > 0">
+        <!-- <div class="search-results-overlay px-4 py-1" *ngIf="isSearchFocusModeOn && searchResultCount > 0">
           <ion-text color="light">
             {{ currentSearchIndex + 1 }} / {{ searchResultCount }} results
           </ion-text>
@@ -47,7 +47,7 @@
           <ion-button fill="clear" size="small" (click)="nextSearchResult()">
             <ion-icon name="arrow-dropdown"></ion-icon>
           </ion-button>
-        </div>
+        </div> -->
         <!-- <ksky-search #searchComponent
           (searchQueryChange)="search($event)"
           (setSearchFocusMode)="setIsSearchFocusOn($event)">
@@ -139,13 +139,18 @@
 
       <div class="comments-container" *ngIf="isShowCommentsOn && !isShowSimilarCommentsOn">
         <ion-card class="p-2 my-1">
-          <ion-list-header>
-            <ion-label>Selected Comments ({{ visibleCommentsCount }}/{{ commentRepliesContexts.length + 1 }})</ion-label>
-            <!-- <ion-button fill="clear" color="medium" size="small" (click)="canvas.unselect()"> -->
-            <ion-button fill="clear" color="medium" size="small" (click)="canvas.select()">
-              <ion-icon name="close"></ion-icon>
-            </ion-button>
-          </ion-list-header>
+        <ion-list-header>
+          <ion-label>Selected Comments ({{ visibleCommentsCount }}/{{ commentRepliesContexts.length + 1 }})</ion-label>
+          <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToPrevMatch()">
+            <ion-icon name="arrow-back"></ion-icon>
+          </ion-button>
+          <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToNextMatch()">
+            <ion-icon name="arrow-forward"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" color="medium" size="small" (click)="canvas.select()">
+            <ion-icon name="close"></ion-icon>
+          </ion-button>
+        </ion-list-header>
           <ion-card-content class="p-0">
             <ion-list class="comments-list p-0" #commentsList>
               <ng-container

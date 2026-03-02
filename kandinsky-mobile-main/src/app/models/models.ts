@@ -46,6 +46,8 @@ export type RawSocialComment = SocialItem & {
   parentCommentId: string;
   parentAuthorName: string;
   comments: RawSocialComment[];
+  authorChannelId: string | null;
+  authorProfileImageUrl: string | null;
 };
 
 /** Represents topic analysis of a comment. */
