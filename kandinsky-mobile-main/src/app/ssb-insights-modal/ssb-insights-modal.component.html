@@ -50,8 +50,18 @@
     </ion-card-header>
 
     <ion-card-content>
+      <!-- Category Filters dropdown -->
+      <ion-item>
+        <ion-label>Category Filters</ion-label>
+        <ion-select multiple="true"
+                    [value]="selectedCategories"
+                    (ionChange)="handleCategoryChange($event)">
+          <ion-select-option *ngFor="let cat of categories" [value]="cat">{{ cat }}</ion-select-option>
+        </ion-select>
+      </ion-item>
+
       <ion-list>
-        <ion-item button *ngFor="let row of stats.reviewQueue" (click)="selectRow(row)">
+        <ion-item button *ngFor="let row of filteredReviewQueue" (click)="selectRow(row)">
           <ion-label class="ion-text-wrap">
             <div class="row-top">
               <b>{{ row.tactic || row.label }}</b>
