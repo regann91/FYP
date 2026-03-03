@@ -63,6 +63,11 @@ W_COLLUSION_REPLY     = 20   # replying to/from another suspicious account
 W_EXPLICIT_PFP        = 50   # nudenet flagged profile picture
 W_INCOHERENT_TAIL     = 35   # tail semantically unrelated to comment body (embedding cosine)
 
+# Theoretical maximum score (sum of all weights) — used to normalise to 0.0–1.0
+MAX_SCORE = (W_ACCOUNT_VERY_NEW + W_ZERO_SUBSCRIBERS + W_ZERO_VIDEOS + W_ZERO_LIKES_NEW +
+             W_DUPLICATE_TEXT + W_DUPLICATE_TAIL + W_INCOHERENT_TAIL +
+             W_BURST_TIMING + W_EXPLICIT_PFP + W_COLLUSION_REPLY)  # = 320
+
 BURST_WINDOW_SECS     = 60   # seconds window for burst detection
 BURST_MIN_COUNT       = 3    # minimum accounts in burst to trigger
 DUP_SIMILARITY        = 0.80 # full-text similarity threshold (0-1)
@@ -160,8 +165,8 @@ def startup():
     CHANNEL_CACHE = ChannelCache(ttl=CACHE_TTL)
 
     try:
-        from nudenet import NudeClassifier
-        NUDENET_CLASSIFIER = NudeClassifier()
+        from nudenet import NudeDetector
+        NUDENET_CLASSIFIER = NudeDetector()
         NUDENET_AVAILABLE  = True
         log.info("nudenet loaded — profile picture analysis enabled")
     except ImportError:
@@ -276,6 +281,14 @@ async def fetch_channel_stats(channel_ids: List[str]) -> Dict[str, Dict]:
     return results
 
 # ── nudenet profile picture analysis ─────────────────────────────────────────
+EXPLICIT_CLASSES = {
+    "FEMALE_GENITALIA_EXPOSED",
+    "MALE_GENITALIA_EXPOSED",
+    "FEMALE_BREAST_EXPOSED",
+    "BUTTOCKS_EXPOSED",
+    "ANUS_EXPOSED",
+}
+
 def check_profile_picture_sync(image_url: str) -> bool:
     """Returns True if profile picture is flagged as explicit. Runs in thread pool."""
     if not NUDENET_AVAILABLE or not image_url:
@@ -284,10 +297,11 @@ def check_profile_picture_sync(image_url: str) -> bool:
         import urllib.request, tempfile
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
             urllib.request.urlretrieve(image_url, f.name)
-            result = NUDENET_CLASSIFIER.classify(f.name)
+            detections = NUDENET_CLASSIFIER.detect(f.name)
             os.unlink(f.name)
-        for _fname, scores in result.items():
-            if scores.get("unsafe", 0) > 0.6:
+        # Flag if any explicit body part detected with confidence > 0.6
+        for det in detections:
+            if det.get("class") in EXPLICIT_CLASSES and det.get("score", 0) > 0.6:
                 return True
         return False
     except Exception as ex:
@@ -693,7 +707,7 @@ async def analyze(req: AnalyzeRequest):
         results.append({
             "comment_id": c.comment_id,
             "label":      "SCAM" if is_scam else "HAM",
-            "score":      score,
+            "score":      round(score / MAX_SCORE, 4),  # normalised 0.0–1.0
             "tactic":     tactic,
             "signals":    signals,
         })

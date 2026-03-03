@@ -1,10 +1,24 @@
+// ── hidden canvas util ────────────────────────────────────────────────────
+ksky-canvas.hidden-canvas,
+ksky-ssb-canvas.hidden-canvas {
+  display: none !important;
+}
+
+ksky-ssb-canvas {
+  display: block;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+// ── interface overlay ─────────────────────────────────────────────────────
 .interface-overlay {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -12,8 +26,8 @@
 
 .interface-header {
   pointer-events: all;
-  
-  ion-item  {
+
+  ion-item {
     --ion-item-background: transparent;
   }
 
@@ -22,16 +36,80 @@
   }
 }
 
+// ── tab bar ───────────────────────────────────────────────────────────────
+.tab-bar-container {
+  display: flex;
+  justify-content: center;
+  padding: 6px 16px 0;
+}
+
+.tab-bar {
+  display: flex;
+  background: rgba(30, 30, 30, 0.88);
+  border-radius: 22px;
+  padding: 3px;
+  gap: 2px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 16px;
+  border-radius: 18px;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  position: relative;
+
+  ion-icon {
+    font-size: 15px;
+  }
+
+  &.active {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+  }
+
+  &.tab-btn-ssb.active {
+    background: rgba(239, 68, 68, 0.22);
+    color: #fca5a5;
+  }
+}
+
+.ssb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ef4444;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 10px;
+  padding: 1px 5px;
+  margin-left: 2px;
+  min-width: 16px;
+}
+
+// ── SSB tab header ────────────────────────────────────────────────────────
+.ssb-tab-header {
+  flex-wrap: wrap;
+}
+
+// ── comments container ────────────────────────────────────────────────────
 .comments-container {
-    
   .comments-list {
     max-height: 14vh;
     overflow-y: scroll;
   }
 }
 
+// ── interface content ─────────────────────────────────────────────────────
 .interface-content {
-
   & > * {
     pointer-events: all;
   }
@@ -39,40 +117,32 @@
   .timestamp-container {
     pointer-events: none;
   }
+
+  .panel-container {
+    pointer-events: all;
+  }
 }
 
+// ── comment item ──────────────────────────────────────────────────────────
 .comment-item {
-  
   .like-bar {
     display: block;
     position: absolute;
     height: calc(100% - 24px);
     left: 0;
   }
-  
+
   .similarity-container {
     ion-button {
       --padding-end: 0;
     }
   }
-  
+
   ion-button {
     --padding-start: 0;
   }
 }
 
 .context-menu-button {
-  --padding-end: 0;
-}
-
-.mini-reference-comment-item {
-  --inner-padding-end: 0;
-}
-
-.ssb-explain {
-  margin-top: 6px;
-}
-
-.ssb-meta {
-  margin-top: 4px;
+  --context-padding-end: 0;
 }

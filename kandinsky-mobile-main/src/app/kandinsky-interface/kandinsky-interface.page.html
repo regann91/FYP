@@ -1,13 +1,30 @@
 <ion-content fullscreen [scrollY]="false">
+
+  <!-- ══════════════════════ NORMAL CANVAS (always mounted) ══════════════════ -->
   <ksky-canvas #canvas
     [selectedConcentricCircle]="selectedConcentricCircle"
     (selectConcentricCircleEvent)="selectedConcentricCircleChange($event)"
     [timestamp]="timestamp"
     [isHighlightModeOn]="isSpectrumModeOn"
     [isFocusModeOn]="isFocusModeOn"
-    (onReady)="onCanvasReady()">
+    (onReady)="onCanvasReady()"
+    [class.hidden-canvas]="activeTab === 'ssb'">
   </ksky-canvas>
+
+  <!-- ══════════════════════ SSB CANVAS ═════════════════════════════════════ -->
+  <ksky-ssb-canvas
+    [class.hidden-canvas]="activeTab !== 'ssb'"
+    [comments]="allComments"
+    [ssbResults]="ssbResultsMap"
+    [threshold]="ssbThreshold"
+    [isActive]="activeTab === 'ssb'"
+    (nodeSelected)="onSSBNodeSelected($event)">
+  </ksky-ssb-canvas>
+
+  <!-- ══════════════════════ INTERFACE OVERLAY ══════════════════════════════ -->
   <div class="interface-overlay">
+
+    <!-- ── Header ── -->
     <div class="interface-header">
       <div class="header-container text-light pl-4 pr-2 pt-4 d-flex justify-content-between">
         <ion-buttons slot="start">
@@ -18,79 +35,96 @@
           <p class="mb-1" *ngIf="fullTitle">{{ post.content }}</p>
           <p class="text-muted mb-0 font-weight-light">by {{post.authorName}}</p>
         </div>
-        <ion-button
-          fill="clear"
-          color="medium"
-          class="ml-2 mt-0"
-          (click)="displayPostInformation()">
+        <ion-button fill="clear" color="medium" class="ml-2 mt-0" (click)="displayPostInformation()">
           <ion-icon name="more" mode="md"></ion-icon>
         </ion-button>
       </div>
-      <div class="subheader-container px-4 py-2" *ngIf="!isShowSimilarCommentsOn">
-        <ion-searchbar
-          class="p-0"
-          debounce="150"
-          [(ngModel)]="searchQuery"
-          (ionChange)="search(searchQuery)"
-          (ionInput)="search($event.detail.value || '')"
-          (ionFocus)="setIsSearchFocusOn(true)"
-          (ionBlur)="setIsSearchFocusOn(false)"
-          (ionClear)="search()">
-        </ion-searchbar>
-        <!-- <div class="search-results-overlay px-4 py-1" *ngIf="isSearchFocusModeOn && searchResultCount > 0">
-          <ion-text color="light">
-            {{ currentSearchIndex + 1 }} / {{ searchResultCount }} results
-          </ion-text>
-          <ion-button fill="clear" size="small" (click)="prevSearchResult()">
-            <ion-icon name="arrow-dropup"></ion-icon>
+
+      <!-- ── TOP TAB BAR ── -->
+      <div class="tab-bar-container">
+        <div class="tab-bar">
+          <button
+            class="tab-btn"
+            [class.active]="activeTab === 'visualisation'"
+            (click)="switchTab('visualisation')">
+            <ion-icon name="eye-outline"></ion-icon>
+            Visualisation
+          </button>
+          <button
+            class="tab-btn tab-btn-ssb"
+            [class.active]="activeTab === 'ssb'"
+            (click)="switchTab('ssb')">
+            <ion-icon name="shield-checkmark-outline"></ion-icon>
+            SSB Analysis
+            <span class="ssb-badge" *ngIf="scamCommentIds.length">{{ scamCommentIds.length }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Visualisation-tab subheader ── -->
+      <ng-container *ngIf="activeTab === 'visualisation'">
+        <div class="subheader-container px-4 py-2" *ngIf="!isShowSimilarCommentsOn">
+          <ion-searchbar
+            class="p-0"
+            debounce="150"
+            [(ngModel)]="searchQuery"
+            (ionChange)="search(searchQuery)"
+            (ionInput)="search($event.detail.value || '')"
+            (ionFocus)="setIsSearchFocusOn(true)"
+            (ionBlur)="setIsSearchFocusOn(false)"
+            (ionClear)="search()">
+          </ion-searchbar>
+        </div>
+        <div class="comments-container subheader-container px-0 py-2" *ngIf="isShowSimilarCommentsOn">
+          <ion-card class="p-2 my-1">
+            <ion-list-header>
+              <ion-label>Reference Comment</ion-label>
+              <ion-button fill="clear"
+                [color]="isReferenceCommentMinimized ? 'medium' : 'primary'"
+                size="small"
+                (click)="isReferenceCommentMinimized = !isReferenceCommentMinimized">
+                <ion-icon name="resize"></ion-icon>
+              </ion-button>
+            </ion-list-header>
+            <ion-card-content class="p-0">
+              <ion-list class="comments-list p-0" *ngIf="!isReferenceCommentMinimized">
+                <ng-container
+                  [ngTemplateOutlet]="commentItem"
+                  [ngTemplateOutletContext]="referenceCommentContext">
+                </ng-container>
+              </ion-list>
+              <p class="font-italic text-center py-2" *ngIf="isReferenceCommentMinimized">
+                <small>{{ referenceCommentContext.context.comment.content }}</small>
+              </p>
+            </ion-card-content>
+          </ion-card>
+        </div>
+      </ng-container>
+
+      <!-- ── SSB tab subheader — run / stats ── -->
+      <ng-container *ngIf="activeTab === 'ssb'">
+        <div class="ssb-tab-header px-4 py-2 d-flex align-items-center" style="gap:10px">
+          <ion-button size="small" [color]="ssbResultsMap.size > 0 ? 'medium' : 'primary'" (click)="runSSBAnalysis()">
+            <ion-icon slot="start" name="play-circle-outline"></ion-icon>
+            {{ ssbResultsMap.size > 0 ? 'Re-run SSB' : 'Run SSB' }}
           </ion-button>
-          <ion-button fill="clear" size="small" (click)="nextSearchResult()">
-            <ion-icon name="arrow-dropdown"></ion-icon>
+          <ion-button size="small" color="medium" (click)="openSSBInsights()" *ngIf="ssbStats">
+            <ion-icon slot="start" name="bar-chart-outline"></ion-icon>
+            Insights
           </ion-button>
-        </div> -->
-        <!-- <ksky-search #searchComponent
-          (searchQueryChange)="search($event)"
-          (setSearchFocusMode)="setIsSearchFocusOn($event)">
-        </ksky-search> -->
-      </div>
-      <div class="comments-container subheader-container px-0 py-2" *ngIf="isShowSimilarCommentsOn">
-        <ion-card class="p-2 my-1">
-          <ion-list-header>
-            <ion-label>Reference Comment</ion-label>
-            <ion-button fill="clear"
-              [color]="isReferenceCommentMinimized ? 'medium' : 'primary'"
-              size="small"
-              (click)="isReferenceCommentMinimized = !isReferenceCommentMinimized">
-              <ion-icon name="resize"></ion-icon>
-            </ion-button>
-          </ion-list-header>
-          <ion-card-content class="p-0">
-            <ion-list class="comments-list p-0" *ngIf="!isReferenceCommentMinimized">
-              <ng-container
-                [ngTemplateOutlet]="commentItem"
-                [ngTemplateOutletContext]="referenceCommentContext">
-              </ng-container>
-            </ion-list>
-            <p class="font-italic text-center py-2" *ngIf="isReferenceCommentMinimized">
-              <small>
-                {{ referenceCommentContext.context.comment.content }}
-              </small>
-            </p>
-          </ion-card-content>
-        </ion-card>
-      </div>
-      <div class="panel-container pl-4">
-        <button
-          class="btn btn-medium"
-          (click)="toggleSpectrumMode()">
-          <ion-icon
-            [color]="isSpectrumModeOn ? 'primary' : 'medium'"
-            name="podium">
-          </ion-icon>
-        </button>
-      </div>
+          <ion-button size="small" color="medium" (click)="downloadSSBScamsCSV()" *ngIf="ssbStats">
+            <ion-icon slot="start" name="download-outline"></ion-icon>
+            Export CSV
+          </ion-button>
+          <span *ngIf="ssbStats" style="font-size:12px; color:#aaa;">
+            {{ ssbStats.flagged }} / {{ ssbStats.total }} flagged
+          </span>
+        </div>
+      </ng-container>
     </div>
-    <div class="interface-content">
+
+    <!-- ── Interface content (visualisation tab only) ── -->
+    <div class="interface-content" *ngIf="activeTab === 'visualisation'">
 
       <div class="px-4 d-flex pointer-events-none">
         <div class="timestamp-container flex-grow-1" *ngIf="!isSpectrumModeOn">
@@ -98,22 +132,19 @@
             {{ ((timestamp === 0 && post) ? post.publishTimestamp : timestamp) | amDateFormat: 'D MMMM YYYY' }}
           </h5>
           <ion-text color="medium">
-            <p>{{ ((timestamp === 0 && post) ? post.publishTimestamp : timestamp) | amDateFormat: 'h:mm:ss A' }} </p>
+            <p>{{ ((timestamp === 0 && post) ? post.publishTimestamp : timestamp) | amDateFormat: 'h:mm:ss A' }}</p>
           </ion-text>
         </div>
         <div class="timestamp-container flex-grow-1" *ngIf="isSpectrumModeOn">
           <h6 class="font-weight-light">
-            <span>
-              {{ spectrumStartTime | amDateFormat: 'h:mm A D MMMM YY' }}
-            </span>
-            <span class="text-muted">-</span>
-            <span>
-              {{ spectrumEndTime | amDateFormat: 'h:mm A D MMMM YY' }}
-            </span>
+            <span>{{ spectrumStartTime | amDateFormat: 'h:mm A D MMMM YY' }}</span>
+            <span class="text-muted"> - </span>
+            <span>{{ spectrumEndTime | amDateFormat: 'h:mm A D MMMM YY' }}</span>
           </h6>
         </div>
       </div>
 
+      <!-- Similar comments panel -->
       <div class="comments-container" *ngIf="isShowSimilarCommentsOn">
         <ion-card class="p-2 my-1">
           <ion-list-header>
@@ -129,39 +160,28 @@
                 [ngTemplateOutletContext]="context">
               </ng-container>
               <p class="text-center p-4" *ngIf="visibleSimilarCommentsCount === 0">
-                <ion-text color="medium" *ngIf="isSpectrumModeOn">No similar comments displayed. Adjust the spectrum knobs to show more comments.</ion-text>
-                <ion-text color="medium" *ngIf="!isSpectrumModeOn">No similar comments displayed. Adjust the timeline cursor to show more comments.</ion-text>
+                <ion-text color="medium">No similar comments displayed.</ion-text>
               </p>
             </ion-list>
           </ion-card-content>
         </ion-card>
       </div>
 
+      <!-- Selected comment thread panel -->
       <div class="comments-container" *ngIf="isShowCommentsOn && !isShowSimilarCommentsOn">
         <ion-card class="p-2 my-1">
-        <ion-list-header>
-          <ion-label>Selected Comments ({{ visibleCommentsCount }}/{{ commentRepliesContexts.length + 1 }})</ion-label>
-          <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToPrevMatch()">
-            <ion-icon name="arrow-back"></ion-icon>
-          </ion-button>
-          <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToNextMatch()">
-            <ion-icon name="arrow-forward"></ion-icon>
-          </ion-button>
-          <ng-container *ngIf="isSSBEnabled && scamCommentIds.length > 0 && searchQuery.length === 0">
-            <ion-button fill="clear" color="danger" size="small" (click)="goToPrevScam()">
+          <ion-list-header>
+            <ion-label>Selected Comments ({{ visibleCommentsCount }}/{{ commentRepliesContexts.length + 1 }})</ion-label>
+            <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToPrevMatch()">
               <ion-icon name="arrow-back"></ion-icon>
             </ion-button>
-            <ion-text color="danger" style="font-size: 11px; align-self: center;">
-              {{ currentScamIndex >= 0 ? currentScamIndex + 1 : '?' }}/{{ scamCommentIds.length }}
-            </ion-text>
-            <ion-button fill="clear" color="danger" size="small" (click)="goToNextScam()">
+            <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToNextMatch()">
               <ion-icon name="arrow-forward"></ion-icon>
             </ion-button>
-          </ng-container>
-          <ion-button fill="clear" color="medium" size="small" (click)="canvas.select()">
-            <ion-icon name="close"></ion-icon>
-          </ion-button>
-        </ion-list-header>
+            <ion-button fill="clear" color="medium" size="small" (click)="canvas.select()">
+              <ion-icon name="close"></ion-icon>
+            </ion-button>
+          </ion-list-header>
           <ion-card-content class="p-0">
             <ion-list class="comments-list p-0" #commentsList>
               <ng-container
@@ -173,22 +193,19 @@
                 [ngTemplateOutletContext]="context">
               </ng-container>
               <p class="text-center p-4" *ngIf="visibleCommentsCount === 0">
-                <ion-text color="medium" *ngIf="isSpectrumModeOn">No comments displayed. Adjust the spectrum knobs to show more comments.</ion-text>
-                <ion-text color="medium" *ngIf="!isSpectrumModeOn">No comments displayed. Adjust the timeline cursor to show more comments.</ion-text>
+                <ion-text color="medium">No comments displayed.</ion-text>
               </p>
             </ion-list>
           </ion-card-content>
         </ion-card>
       </div>
 
+      <!-- Spectrum / timeline controls -->
       <ksky-spectrum-controls #spectrumControls
         *ngIf="isSpectrumModeOn"
         [intervals]="spectrumIntervals"
         [(range)]="spectrumRange"
-        (rangeChange)="spectrumRangeChange()"
-        (ssbToggle)="onSSBToggle($event)"
-        (openInsights)="openSSBInsights()"
-        (exportScams)="downloadSSBScamsCSV()">
+        (rangeChange)="spectrumRangeChange()">
       </ksky-spectrum-controls>
 
       <ksky-timeline-controls #timelineControls
@@ -197,12 +214,27 @@
         (progressChange)="timestampChange($event)"
         [MAX_PROGRESS]="maxProgress">
       </ksky-timeline-controls>
-    </div>
-  </div>
+
+      <!-- Spectrum toggle button (bottom-left) -->
+      <div class="panel-container pl-4">
+        <button class="btn btn-medium" (click)="toggleSpectrumMode()">
+          <ion-icon
+            [color]="isSpectrumModeOn ? 'primary' : 'medium'"
+            name="podium">
+          </ion-icon>
+        </button>
+      </div>
+
+    </div><!-- /interface-content -->
+
+  </div><!-- /interface-overlay -->
 </ion-content>
 
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- Comment item template (visualisation tab)                                -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
 <ng-template #commentItem let-context="context">
-  <ion-item 
+  <ion-item
     *ngIf="context.display.visible"
     [id]="context.id"
     [lines]="context.display.showLines ? 'inset' : 'none'"
@@ -213,46 +245,7 @@
         <h3 class="d-inline">{{ context.comment.authorName }}</h3>
         <small class="text-muted">{{ context.comment.publishTimestamp | amDateFormat : 'D MMM YYYY H:mm A' }}</small>
       </div>
-      <!-- yellow: {{context.display.highlightOptions[0].indices.join(' - ')}}
-      blue: {{context.display.highlightOptions[1].indices.join(' - ')}} -->
       <p [innerHTML]="context.comment.content | highlight : context.display.highlightOptions | sanitizeHtml"></p>
-      <div *ngIf="isSSBEnabled">
-        <div *ngIf="getSSBResultForComment(context.comment.id) as ssb" class="ssb-explain">
-          <ion-chip
-            [color]="ssb.flagged ? 'danger' : 'success'"
-            size="small"
-            [class.ssb-chip-clickable]="ssb.flagged"
-            (click)="ssb.flagged ? toggleSSBSignalPopover(context.comment.id, $event) : null">
-            {{ ssb.flagged ? 'SCAM' : 'HAM' }} • {{ ssb.score | number:'1.0-0' }}
-            <ion-icon *ngIf="ssb.flagged" name="information-circle-outline" style="margin-left: 4px; font-size: 14px;"></ion-icon>
-          </ion-chip>
-
-          <!-- Inline signal breakdown panel, shown on chip click -->
-          <div class="ssb-signals-panel" *ngIf="ssb.flagged && ssbSignalPopoverCommentId === context.comment.id && ssbSignalPopoverOpen">
-            <div class="ssb-signals-header">
-              <small><b>Why flagged?</b></small>
-              <ion-button fill="clear" size="small" color="medium" (click)="closeSSBSignalPopover()">
-                <ion-icon slot="icon-only" name="close" style="font-size: 14px;"></ion-icon>
-              </ion-button>
-            </div>
-            <div class="ssb-signals-tactic">
-              <small class="text-muted">Tactic: <b>{{ ssb.tactic || '—' }}</b> &nbsp;|&nbsp; Score: <b>{{ ssb.score }}</b></small>
-            </div>
-            <ul class="ssb-signals-list">
-              <li *ngFor="let sig of getSSBSignals(context.comment.id)">
-                <small>{{ sig.description }}</small>
-              </li>
-            </ul>
-          </div>
-
-          <div class="ssb-meta">
-            <small class="text-muted">
-              Tags: {{ ssb.ruleTags && ssb.ruleTags.length ? ssb.ruleTags.join(', ') : '-' }}
-              • ML: {{ ssb.mlProb !== null ? (ssb.mlProb | number:'1.2-2') : '-' }}
-            </small>
-          </div>
-        </div>
-      </div>
       <div class="d-flex justify-content-between">
         <div class="buttons-container">
           <ion-button size="small" fill="clear" color="medium">
@@ -271,7 +264,6 @@
           <ion-button size="small" fill="clear" color="primary"
             *ngIf="context.analytics.similarity.showButton"
             (click)="selectedSimilarityReferenceCircleChange(context.circle)">
-            <!-- Find similar comments -->
             See similar comments ({{ context.analytics.similarity.similarCommentsCount }})
           </ion-button>
           <ion-button size="small" fill="clear" color="medium"
