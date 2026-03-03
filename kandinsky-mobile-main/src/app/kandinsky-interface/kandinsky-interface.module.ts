@@ -11,6 +11,7 @@ import { HighlightPipe } from '../highlight.pipe';
 import { PostInformationModalComponent } from './post-information-modal/post-information-modal.component';
 import { SpectrumControlsComponent } from './spectrum-controls/spectrum-controls.component';
 import { SanitizeHtmlPipe } from '../sanitize-html.pipe';
+import { SsbCanvasComponent } from './ssb-canvas/ssb-canvas.component';
 
 @NgModule({
   imports: [
@@ -27,7 +28,8 @@ import { SanitizeHtmlPipe } from '../sanitize-html.pipe';
     TimelineControlsComponent,
     SpectrumControlsComponent,
     HighlightPipe,
-    SanitizeHtmlPipe
+    SanitizeHtmlPipe,
+    SsbCanvasComponent,
   ],
   entryComponents: [
     PostInformationModalComponent
