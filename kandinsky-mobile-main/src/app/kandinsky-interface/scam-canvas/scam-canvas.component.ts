@@ -1,7 +1,7 @@
 // scam-canvas/scam-canvas.component.ts
 import {
-  Component, OnInit, OnChanges, SimpleChanges,
-  Input, Output, EventEmitter, OnDestroy, NgZone
+  Component, OnInit, OnChanges, SimpleChanges, AfterViewInit,
+  Input, Output, EventEmitter, OnDestroy, NgZone, ViewChild, ElementRef
 } from '@angular/core';
 import { SocialComment } from 'src/app/models/models';
 
@@ -34,31 +34,22 @@ const TACTIC_COLORS: Record<string, string> = {
   SCAM_GIVEAWAY: '#06b6d4',
   SCAM_BOT:      '#ef4444',
 };
-
 const DEFAULT_SCAM_COLOR = '#ef4444';
 
 @Component({
   selector: 'ksky-scam-canvas',
   template: `
     <div class="scam-root" (click)="onRootClick()">
-
-      <!-- Canvas -->
       <canvas #scamCanvas class="scam-canvas"></canvas>
 
-      <!-- Toolbar -->
       <div class="scam-toolbar">
         <span class="scam-stat" *ngIf="visibleNodes.length">
           {{ visibleNodes.length }} scam comment{{ visibleNodes.length === 1 ? '' : 's' }}
         </span>
-        <span class="scam-stat muted" *ngIf="!visibleNodes.length && resultsReady">
-          No scam comments detected
-        </span>
-        <span class="scam-stat muted" *ngIf="!resultsReady">
-          Awaiting analysis…
-        </span>
+        <span class="scam-stat muted" *ngIf="!visibleNodes.length && resultsReady">No scam comments detected</span>
+        <span class="scam-stat muted" *ngIf="!resultsReady">Awaiting analysis…</span>
       </div>
 
-      <!-- Hover tooltip -->
       <div class="node-tooltip" *ngIf="hoveredNode"
         [style.left.px]="tooltipX" [style.top.px]="tooltipY">
         <div class="tt-author">
@@ -79,7 +70,6 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
         <div class="tt-hint" *ngIf="!selectedNode">Click to inspect</div>
       </div>
 
-      <!-- Selected comment detail panel -->
       <div class="detail-panel" *ngIf="selectedNode" (click)="$event.stopPropagation()">
         <div class="detail-header">
           <span class="detail-avatar" [style.background]="selectedNode.color">
@@ -96,10 +86,7 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
         <div class="detail-score-row">
           <span class="detail-score-label">Scam score</span>
           <div class="detail-score-bar">
-            <div class="score-fill"
-              [style.width.%]="selectedNode.result.score * 100"
-              [style.background]="selectedNode.color">
-            </div>
+            <div class="score-fill" [style.width.%]="selectedNode.result.score * 100" [style.background]="selectedNode.color"></div>
           </div>
           <span class="detail-score-num">{{ (selectedNode.result.score * 100) | number:'1.0-0' }}%</span>
         </div>
@@ -116,54 +103,28 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
         </div>
       </div>
 
-      <!-- Empty pane -->
       <div class="empty-pane" *ngIf="!visibleNodes.length && resultsReady">
         <ion-icon name="shield-checkmark-outline" style="font-size:52px; color:#2e2e2e"></ion-icon>
         <p class="empty-text">No scam comments detected</p>
       </div>
-
     </div>
   `,
   styles: [`
     :host { display: block; width: 100%; height: 100%; }
-
-    .scam-root {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      background: #111;
-      overflow: hidden;
-    }
-
-    .scam-canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    /* ── Toolbar ─────────────────────────────────────────────────── */
+    .scam-root { position: relative; width: 100%; height: 100%; background: #111; overflow: hidden; }
+    .scam-canvas { display: block; width: 100%; height: 100%; }
     .scam-toolbar {
-      position: absolute;
-      top: 12px; left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      background: rgba(24,24,24,0.92);
-      border-radius: 20px; padding: 5px 16px;
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.06);
-      white-space: nowrap;
-      pointer-events: none;
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      z-index: 10; background: rgba(24,24,24,0.92); border-radius: 20px; padding: 5px 16px;
+      backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.06);
+      white-space: nowrap; pointer-events: none;
     }
     .scam-stat { font-size: 12px; color: #888; }
     .scam-stat.muted { color: #444; }
-
-    /* ── Tooltip ─────────────────────────────────────────────────── */
     .node-tooltip {
-      position: absolute; pointer-events: none;
-      background: rgba(14,14,14,0.97);
-      border: 1px solid #2e2e2e; border-radius: 10px;
-      padding: 10px 12px; width: 230px; z-index: 30;
-      backdrop-filter: blur(8px);
+      position: absolute; pointer-events: none; background: rgba(14,14,14,0.97);
+      border: 1px solid #2e2e2e; border-radius: 10px; padding: 10px 12px;
+      width: 230px; z-index: 30; backdrop-filter: blur(8px);
     }
     .tt-author { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #fff; margin-bottom: 6px; }
     .tt-avatar { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; flex-shrink: 0; }
@@ -172,27 +133,13 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
     .tt-score { font-size: 11px; color: #666; }
     .tt-snippet { font-size: 11px; color: #aaa; line-height: 1.45; margin-bottom: 6px; }
     .tt-hint { font-size: 9px; color: #444; text-align: right; }
-
-    /* ── Detail panel ────────────────────────────────────────────── */
     .detail-panel {
-      position: absolute;
-      bottom: 90px; left: 16px;
-      width: 290px;
-      background: rgba(14,14,14,0.97);
-      border: 1px solid #252525;
-      border-radius: 14px;
-      padding: 14px;
-      z-index: 25;
-      backdrop-filter: blur(10px);
+      position: absolute; bottom: 90px; left: 16px; width: 290px;
+      background: rgba(14,14,14,0.97); border: 1px solid #252525;
+      border-radius: 14px; padding: 14px; z-index: 25; backdrop-filter: blur(10px);
     }
-    .detail-header {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-    }
-    .detail-avatar {
-      width: 30px; height: 30px; border-radius: 50%;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 12px; color: #fff; flex-shrink: 0;
-    }
+    .detail-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .detail-avatar { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #fff; flex-shrink: 0; }
     .detail-author-block { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
     .detail-author { font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .detail-chip { font-size: 9px; padding: 2px 7px; border-radius: 6px; font-weight: 600; align-self: flex-start; }
@@ -207,8 +154,6 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
     .signal-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; color: #666; }
     .signal-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
     .detail-text p { font-size: 11px; color: #888; line-height: 1.5; margin: 4px 0 0; }
-
-    /* ── Empty state ─────────────────────────────────────────────── */
     .empty-pane {
       position: absolute; top: 0; left: 0; right: 0; bottom: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -217,7 +162,7 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
     .empty-text { color: #3a3a3a; margin-top: 12px; font-size: 13px; }
   `]
 })
-export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
+export class ScamCanvasComponent implements OnInit, AfterViewInit, OnChanges, OnDestroy {
 
   @Input() comments:      SocialComment[] = [];
   @Input() scamResults:   Map<string, ScamResultFull> = new Map();
@@ -228,8 +173,12 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
   @Output() nodeSelected     = new EventEmitter<{ comment: SocialComment; result: ScamResultFull } | null>();
   @Output() scamCountChanged = new EventEmitter<number>();
 
-  private canvasEl: HTMLCanvasElement;
+  @ViewChild('scamCanvas', { static: false }) scamCanvasRef: ElementRef<HTMLCanvasElement>;
+
+
   private ctx: CanvasRenderingContext2D;
+  // Store canvasEl as a field so event handlers can reference it without args
+  private canvasEl: HTMLCanvasElement;
 
   allScamNodes:  ScamNodeDatum[] = [];
   visibleNodes:  ScamNodeDatum[] = [];
@@ -239,12 +188,12 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
   hoveredNode:   ScamNodeDatum | null = null;
   tooltipX = 0;
   tooltipY = 0;
-
   resultsReady = false;
 
   private animFrame: number;
   private width  = 0;
   private height = 0;
+  private viewInitialized = false;
   private boundMouseMove: (e: MouseEvent) => void;
   private boundClick:     (e: MouseEvent) => void;
 
@@ -252,58 +201,59 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit() {}
 
+  ngAfterViewInit() {
+    this.viewInitialized = true;
+    if (this.isActive) {
+      setTimeout(() => this.initCanvas(), 60);
+    }
+  }
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes.scamResults && this.scamResults.size > 0) {
       this.buildNodes();
+      if (this.isActive && this.viewInitialized) {
+        setTimeout(() => this.initCanvas(), 60);
+      }
     }
     if (changes.tacticFilters) {
       this.applyFilters();
     }
-    if (changes.isActive && this.isActive) {
-      // Tab just became visible — init canvas with real dimensions, then re-layout
-      setTimeout(() => this.initCanvas(), 60);
+    if (changes.isActive) {
+      if (this.isActive && this.viewInitialized) {
+        setTimeout(() => this.initCanvas(), 60);
+      } else if (!this.isActive) {
+        this.stopAnimation();
+      }
     }
   }
 
   ngOnDestroy() {
     this.stopAnimation();
-    if (this.canvasEl) {
-      this.canvasEl.removeEventListener('mousemove', this.boundMouseMove);
-      this.canvasEl.removeEventListener('click', this.boundClick);
-    }
+    this.removeListeners();
   }
 
-  // ── Bootstrap ─────────────────────────────────────────────────────────────
+  // ── Canvas init ───────────────────────────────────────────────────────────
   private initCanvas() {
-    this.canvasEl = document.querySelector<HTMLCanvasElement>('canvas.scam-canvas');
-    if (!this.canvasEl) return;
-
+    if (!this.scamCanvasRef) return;
+    // Store on the instance — event handlers use this.canvasEl, no extra args needed
+    this.canvasEl = this.scamCanvasRef.nativeElement;
     this.ctx = this.canvasEl.getContext('2d');
-    this.resize();
+    this.resizeCanvas();
 
-    if (this.boundMouseMove) {
-      this.canvasEl.removeEventListener('mousemove', this.boundMouseMove);
-      this.canvasEl.removeEventListener('click', this.boundClick);
-    }
+    console.log(`[ScamCanvas] initCanvas: ${this.allScamNodes.length} nodes, ${this.width}x${this.height}`);
 
+    this.removeListeners();
     this.boundMouseMove = (e: MouseEvent) => this.zone.run(() => this.onMouseMove(e));
     this.boundClick     = (e: MouseEvent) => this.zone.run(() => this.onCanvasClick(e));
-
     this.canvasEl.addEventListener('mousemove', this.boundMouseMove);
-    this.canvasEl.addEventListener('click', this.boundClick);
+    this.canvasEl.addEventListener('click',     this.boundClick);
 
-    // ── KEY FIX: always re-layout when canvas becomes visible ─────────────
-    // buildNodes() may have run while the canvas was hidden (width=0, height=0),
-    // so all nodes were placed at (0,0). Now that we have real dimensions, redo it.
-    if (this.allScamNodes.length > 0 || this.resultsReady) {
-      this.layoutNodes();
-    }
-
+    this.layoutNodes();
     this.stopAnimation();
     this.startAnimation();
   }
 
-  private resize() {
+  private resizeCanvas() {
     if (!this.canvasEl) return;
     const rect = this.canvasEl.getBoundingClientRect();
     this.width  = rect.width  || window.innerWidth;
@@ -313,7 +263,13 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
   }
 
-  // ── Build nodes from scamResults ──────────────────────────────────────────
+  private removeListeners() {
+    if (!this.canvasEl) return;
+    if (this.boundMouseMove) this.canvasEl.removeEventListener('mousemove', this.boundMouseMove);
+    if (this.boundClick)     this.canvasEl.removeEventListener('click',     this.boundClick);
+  }
+
+  // ── Build nodes ───────────────────────────────────────────────────────────
   private buildNodes() {
     this.allScamNodes = [];
     this.benignNodes  = [];
@@ -321,7 +277,6 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     this.comments.forEach(c => {
       const r = this.scamResults.get(c.id);
       const isScam = r && r.label === 'SCAM' && Number(r.score) >= this.threshold;
-
       if (isScam) {
         const tactic = r.tactic || 'SCAM_BOT';
         const score  = Number(r.score);
@@ -329,8 +284,7 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
         this.allScamNodes.push({
           id: c.id, comment: c, result: r,
           color: TACTIC_COLORS[tactic] || DEFAULT_SCAM_COLOR,
-          tactic,
-          x: 0, y: 0, radius,
+          tactic, x: 0, y: 0, radius,
           pulsePhase: Math.random() * Math.PI * 2,
           pulseSpeed: 0.018 + score * 0.04
         });
@@ -342,40 +296,27 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     this.resultsReady = true;
     this.scamCountChanged.emit(this.allScamNodes.length);
     this.applyFilters();
-
-    // Only layout now if we already have valid canvas dimensions
-    // (i.e. tab is already visible). If not, initCanvas() will layout later.
-    if (this.width > 0 && this.height > 0) {
-      this.layoutNodes();
-    }
   }
 
-  // ── Apply tactic filters ──────────────────────────────────────────────────
+  // ── Filters ───────────────────────────────────────────────────────────────
   private applyFilters() {
-    if (!this.tacticFilters || this.tacticFilters.length === 0) {
-      this.visibleNodes = this.allScamNodes.slice();
-    } else {
-      this.visibleNodes = this.allScamNodes.filter(n =>
-        this.tacticFilters.includes(n.tactic)
-      );
-    }
+    this.visibleNodes = (!this.tacticFilters || this.tacticFilters.length === 0)
+      ? this.allScamNodes.slice()
+      : this.allScamNodes.filter(n => this.tacticFilters.includes(n.tactic));
     this.scamCountChanged.emit(this.visibleNodes.length);
   }
 
-  // ── Fibonacci spiral layout ───────────────────────────────────────────────
+  // ── Layout ────────────────────────────────────────────────────────────────
   private layoutNodes() {
     if (!this.width || !this.height) return;
-
     const allNodes = [...this.allScamNodes, ...this.benignNodes];
-    const total    = allNodes.length;
-    if (!total) return;
+    if (!allNodes.length) return;
 
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-    const area    = this.width * this.height * 0.65;
-    const spacing = Math.sqrt(area / total);
+    const spacing = Math.sqrt((this.width * this.height * 0.65) / allNodes.length);
 
     allNodes.forEach((n, i) => {
-      const r     = spacing * Math.sqrt(i + 0.5);
+      const r = spacing * Math.sqrt(i + 0.5);
       const theta = i * goldenAngle;
       n.x = this.width  / 2 + r * Math.cos(theta);
       n.y = this.height / 2 + r * Math.sin(theta);
@@ -385,32 +326,23 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
-  // ── Animation loop ────────────────────────────────────────────────────────
+  // ── Animation ─────────────────────────────────────────────────────────────
   private startAnimation() {
     this.stopAnimation();
-    const loop = () => {
-      this.drawFrame();
-      this.animFrame = requestAnimationFrame(loop);
-    };
+    const loop = () => { this.drawFrame(); this.animFrame = requestAnimationFrame(loop); };
     this.animFrame = requestAnimationFrame(loop);
   }
 
   private stopAnimation() {
-    if (this.animFrame) {
-      cancelAnimationFrame(this.animFrame);
-      this.animFrame = null;
-    }
+    if (this.animFrame) { cancelAnimationFrame(this.animFrame); this.animFrame = null; }
   }
 
   private drawFrame() {
     if (!this.ctx || !this.width) return;
     const ctx = this.ctx;
-    const W = this.width, H = this.height;
-
     ctx.fillStyle = 'rgba(17,17,17,0.82)';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, this.width, this.height);
 
-    // 1. Benign nodes — very dim
     this.benignNodes.forEach(n => {
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
@@ -418,14 +350,12 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
       ctx.fill();
     });
 
-    // 2. Scam nodes
     const hasFilter  = this.tacticFilters && this.tacticFilters.length > 0;
     const visibleSet = new Set(this.visibleNodes.map(n => n.id));
 
     this.allScamNodes.forEach(n => {
       n.pulsePhase += n.pulseSpeed;
-      const pulse = (Math.sin(n.pulsePhase) + 1) / 2;
-
+      const pulse      = (Math.sin(n.pulsePhase) + 1) / 2;
       const isVisible  = !hasFilter || visibleSet.has(n.id);
       const isSelected = this.selectedNode && this.selectedNode.id === n.id;
 
@@ -437,66 +367,46 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
         return;
       }
 
-      // Outer glow
-      const glowRadius = n.radius + 8 + pulse * 18;
-      const glowAlpha  = 0.08 + pulse * 0.18;
-      const grd = ctx.createRadialGradient(n.x, n.y, n.radius * 0.5, n.x, n.y, glowRadius);
-      grd.addColorStop(0, this.hexToRgba(n.color, glowAlpha * 2.2));
+      const glowR = n.radius + 8 + pulse * 18;
+      const grd = ctx.createRadialGradient(n.x, n.y, n.radius * 0.5, n.x, n.y, glowR);
+      grd.addColorStop(0, this.hexToRgba(n.color, (0.08 + pulse * 0.18) * 2.2));
       grd.addColorStop(1, this.hexToRgba(n.color, 0));
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, glowRadius, 0, Math.PI * 2);
-      ctx.fillStyle = grd;
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(n.x, n.y, glowR, 0, Math.PI * 2);
+      ctx.fillStyle = grd; ctx.fill();
 
-      // Selected extra glow
       if (isSelected) {
-        const selGlow = n.radius + 20 + pulse * 26;
-        const selGrd  = ctx.createRadialGradient(n.x, n.y, n.radius, n.x, n.y, selGlow);
-        selGrd.addColorStop(0, this.hexToRgba(n.color, 0.18));
-        selGrd.addColorStop(1, this.hexToRgba(n.color, 0));
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, selGlow, 0, Math.PI * 2);
-        ctx.fillStyle = selGrd;
-        ctx.fill();
+        const sg = ctx.createRadialGradient(n.x, n.y, n.radius, n.x, n.y, n.radius + 20 + pulse * 26);
+        sg.addColorStop(0, this.hexToRgba(n.color, 0.18));
+        sg.addColorStop(1, this.hexToRgba(n.color, 0));
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.radius + 20 + pulse * 26, 0, Math.PI * 2);
+        ctx.fillStyle = sg; ctx.fill();
       }
 
-      // Core circle
-      const coreGrd = ctx.createRadialGradient(
-        n.x - n.radius * 0.3, n.y - n.radius * 0.3, 0, n.x, n.y, n.radius
-      );
-      coreGrd.addColorStop(0, this.lighten(n.color, 0.55));
-      coreGrd.addColorStop(1, n.color);
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
-      ctx.fillStyle = coreGrd;
-      ctx.fill();
+      const cg = ctx.createRadialGradient(n.x - n.radius * 0.3, n.y - n.radius * 0.3, 0, n.x, n.y, n.radius);
+      cg.addColorStop(0, this.lighten(n.color, 0.55));
+      cg.addColorStop(1, n.color);
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+      ctx.fillStyle = cg; ctx.fill();
 
-      // Selection ring
       if (isSelected) {
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.radius + 4, 0, Math.PI * 2);
-        ctx.strokeStyle = n.color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.radius + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = n.color; ctx.lineWidth = 2; ctx.stroke();
       }
 
-      // Author initial
       if (n.radius >= 10) {
         ctx.fillStyle = 'rgba(255,255,255,0.88)';
         ctx.font = `bold ${Math.max(8, n.radius * 0.55)}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText((n.comment.authorName || '?')[0].toUpperCase(), n.x, n.y);
       }
     });
   }
 
-  // ── Mouse events ──────────────────────────────────────────────────────────
+  // ── Interaction ───────────────────────────────────────────────────────────
   private onMouseMove(e: MouseEvent) {
     if (!this.canvasEl) return;
     const rect = this.canvasEl.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const hit = this.hitTest(mx, my);
     this.hoveredNode = hit;
     if (hit) {
@@ -504,58 +414,41 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
       if (tx + 244 > this.width)  tx = mx - 248;
       if (ty + 160 > this.height) ty = this.height - 164;
       if (ty < 0) ty = 4;
-      this.tooltipX = tx;
-      this.tooltipY = ty;
+      this.tooltipX = tx; this.tooltipY = ty;
     }
   }
 
   private onCanvasClick(e: MouseEvent) {
     if (!this.canvasEl) return;
     const rect = this.canvasEl.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const hit = this.hitTest(mx, my);
+    const hit = this.hitTest(e.clientX - rect.left, e.clientY - rect.top);
     if (hit) {
       e.stopPropagation();
-      if (this.selectedNode && this.selectedNode.id === hit.id) {
-        this.clearSelection();
-      } else {
-        this.selectedNode = hit;
-        this.nodeSelected.emit({ comment: hit.comment, result: hit.result });
-      }
+      if (this.selectedNode && this.selectedNode.id === hit.id) this.clearSelection();
+      else { this.selectedNode = hit; this.nodeSelected.emit({ comment: hit.comment, result: hit.result }); }
     }
   }
 
-  onRootClick() {
-    this.clearSelection();
-  }
-
-  clearSelection() {
-    this.selectedNode = null;
-    this.nodeSelected.emit(null);
-  }
+  onRootClick() { this.clearSelection(); }
+  clearSelection() { this.selectedNode = null; this.nodeSelected.emit(null); }
 
   private hitTest(mx: number, my: number): ScamNodeDatum | null {
-    const sorted = [...this.visibleNodes].sort((a, b) => b.radius - a.radius);
-    for (const n of sorted) {
+    for (const n of [...this.visibleNodes].sort((a, b) => b.radius - a.radius)) {
       const dx = mx - n.x, dy = my - n.y;
       if (dx * dx + dy * dy <= (n.radius + 8) * (n.radius + 8)) return n;
     }
     return null;
   }
 
-  // ── Colour helpers ────────────────────────────────────────────────────────
-  private hexToRgba(hex: string, alpha: number): string {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
+  private hexToRgba(hex: string, a: number): string {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
   }
 
-  private lighten(hex: string, amount: number): string {
-    const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + Math.round(255 * amount));
-    const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + Math.round(255 * amount));
-    const b = Math.min(255, parseInt(hex.slice(5, 7), 16) + Math.round(255 * amount));
+  private lighten(hex: string, amt: number): string {
+    const r = Math.min(255, parseInt(hex.slice(1,3),16) + Math.round(255*amt));
+    const g = Math.min(255, parseInt(hex.slice(3,5),16) + Math.round(255*amt));
+    const b = Math.min(255, parseInt(hex.slice(5,7),16) + Math.round(255*amt));
     return `rgb(${r},${g},${b})`;
   }
 }
