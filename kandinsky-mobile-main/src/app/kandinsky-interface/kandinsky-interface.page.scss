@@ -1,10 +1,12 @@
+// kandinsky-interface.page.scss
+
 // ── hidden canvas util ────────────────────────────────────────────────────
 ksky-canvas.hidden-canvas,
-ksky-ssb-canvas.hidden-canvas {
+ksky-scam-canvas.hidden-canvas {
   display: none !important;
 }
 
-ksky-ssb-canvas {
+ksky-scam-canvas {
   display: block;
   position: absolute;
   top: 0; left: 0;
@@ -56,6 +58,7 @@ ksky-ssb-canvas {
 .tab-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   padding: 6px 16px;
   border-radius: 18px;
@@ -64,11 +67,15 @@ ksky-ssb-canvas {
   color: #888;
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s, box-shadow 0.3s;
   position: relative;
 
   ion-icon {
     font-size: 15px;
+  }
+
+  .tab-label {
+    text-align: center;
   }
 
   &.active {
@@ -76,13 +83,40 @@ ksky-ssb-canvas {
     color: #fff;
   }
 
-  &.tab-btn-ssb.active {
+  // Disabled state — grayed out, no pointer
+  &.tab-btn-disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  // Scam tab — default inactive style
+  &.tab-btn-scam.active {
     background: rgba(239, 68, 68, 0.22);
     color: #fca5a5;
   }
+
+  // Scam tab — glows green once analysis is complete
+  &.tab-btn-scam-ready {
+    color: #6ee7b7;
+
+    &.active {
+      background: rgba(16, 185, 129, 0.22);
+      color: #6ee7b7;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.45);
+    }
+
+    &:not(.active) {
+      color: #34d399;
+    }
+
+    .scam-badge {
+      background: #10b981;
+    }
+  }
 }
 
-.ssb-badge {
+.scam-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -95,9 +129,58 @@ ksky-ssb-canvas {
   min-width: 16px;
 }
 
-// ── SSB tab header ────────────────────────────────────────────────────────
-.ssb-tab-header {
+// ── Scam tab header ───────────────────────────────────────────────────────
+.scam-tab-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scam-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
+}
+
+.scam-count-label {
+  font-size: 12px;
+  color: #aaa;
+  margin-left: auto;
+}
+
+.scam-retry-row {
+  display: flex;
+}
+
+// ── Tactic filter pills ───────────────────────────────────────────────────
+.tactic-filter-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 2px 0 4px;
+}
+
+.tactic-pill {
+  padding: 3px 12px;
+  border-radius: 14px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #777;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.18s;
+
+  &.active {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: #10b981;
+    color: #6ee7b7;
+  }
+
+  &:hover:not(.active) {
+    border-color: #555;
+    color: #bbb;
+  }
 }
 
 // ── comments container ────────────────────────────────────────────────────

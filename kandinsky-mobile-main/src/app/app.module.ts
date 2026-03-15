@@ -1,3 +1,4 @@
+// app.module.ts
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { ExportService } from './services/export.service';
@@ -8,12 +9,11 @@ import { StatusBar } from '@ionic-native/status-bar/ngx';
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
 import { HttpClientModule } from '@angular/common/http';
-import { SSBInsightsModalComponent } from './ssb-insights-modal/ssb-insights-modal.component';
-
+import { ScamInsightsModalComponent } from './scam-insights-modal/scam-insights-modal.component';
 
 @NgModule({
-  declarations: [AppComponent,SSBInsightsModalComponent],
-  entryComponents: [SSBInsightsModalComponent],
+  declarations: [AppComponent, ScamInsightsModalComponent],
+  entryComponents: [ScamInsightsModalComponent],
   imports: [
     BrowserModule,
     IonicModule.forRoot({

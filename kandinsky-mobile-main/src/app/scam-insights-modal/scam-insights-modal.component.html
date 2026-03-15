@@ -1,0 +1,181 @@
+<!-- scam-insights-modal/scam-insights-modal.component.html -->
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Scam Insights</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+
+  <!-- ══ 1. Risk Summary Card ══════════════════════════════════════════════ -->
+  <ion-card *ngIf="stats" class="risk-card">
+    <ion-card-content>
+      <div class="risk-header">
+        <div class="risk-badge" [style.background]="riskColor + '22'" [style.border-color]="riskColor">
+          <span class="risk-level-text" [style.color]="riskColor">{{ riskLevel | uppercase }}</span>
+          <span class="risk-sub">risk</span>
+        </div>
+        <div class="risk-kpis">
+          <div class="kpi">
+            <span class="kpi-val">{{ stats.flagged }}</span>
+            <span class="kpi-label">Flagged</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-val">{{ stats.total }}</span>
+            <span class="kpi-label">Total</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-val">{{ ((stats.flagged / stats.total) * 100) | number:'1.0-0' }}%</span>
+            <span class="kpi-label">Rate</span>
+          </div>
+        </div>
+      </div>
+      <div class="risk-detail" *ngIf="topTactic">
+        <span class="risk-detail-label">Top tactic:</span>
+        <span class="tactic-chip" [style.background]="tacticColor(topTactic) + '22'" [style.color]="tacticColor(topTactic)">
+          {{ tacticLabel(topTactic) }}
+        </span>
+        <span class="risk-detail-count">{{ topTacticCount }} comments</span>
+      </div>
+      <div class="top-signals" *ngIf="topSignals.length">
+        <span class="risk-detail-label">Top signals:</span>
+        <span *ngFor="let s of topSignals" class="signal-tag">{{ s }}</span>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- ══ 2. Threshold Control ══════════════════════════════════════════════ -->
+  <ion-card *ngIf="stats">
+    <ion-card-header>
+      <ion-card-title>Detection Threshold</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <div class="threshold-display">
+        <span class="threshold-val">{{ currentThreshold }}</span>
+        <span class="threshold-unit">/ 200</span>
+      </div>
+      <ion-range
+        [min]="40"
+        [max]="180"
+        [step]="1"
+        [value]="currentThreshold"
+        (ionChange)="handleThresholdChange($event)"
+        color="danger">
+        <ion-label slot="start">40</ion-label>
+        <ion-label slot="end">180</ion-label>
+      </ion-range>
+      <p class="threshold-hint">
+        Lowering the threshold flags more comments. Raising it reduces false positives.
+      </p>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- ══ 3. Score Distribution Histogram ═══════════════════════════════════ -->
+  <ion-card *ngIf="stats">
+    <ion-card-header>
+      <ion-card-title>Score Distribution</ion-card-title>
+      <ion-card-subtitle>White line = current threshold</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <svg #histogramSvg style="width:100%;"></svg>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- ══ 4. Tactics Breakdown ══════════════════════════════════════════════ -->
+  <ion-card *ngIf="stats">
+    <ion-card-header>
+      <ion-card-title>Tactics Breakdown</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <svg #tacticSvg style="width:100%;"></svg>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- ══ 5. Timeline Chart ═════════════════════════════════════════════════ -->
+  <ion-card *ngIf="stats && stats.reviewQueue && stats.reviewQueue.length > 1">
+    <ion-card-header>
+      <ion-card-title>Scam Activity Timeline</ion-card-title>
+      <ion-card-subtitle>Hourly flagged comment volume</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <svg #timelineSvg style="width:100%;"></svg>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- ══ 6. Review Queue ═══════════════════════════════════════════════════ -->
+  <ion-card *ngIf="stats && filteredQueue.length">
+    <ion-card-header>
+      <ion-card-title>Review Queue</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+
+      <!-- Search -->
+      <ion-searchbar
+        [(ngModel)]="searchQuery"
+        (ionInput)="rebuildQueue()"
+        (ionClear)="rebuildQueue()"
+        placeholder="Search author, content, tactic…"
+        debounce="200"
+        class="queue-search">
+      </ion-searchbar>
+
+      <!-- Sort controls -->
+      <div class="sort-row">
+        <span class="sort-label">Sort:</span>
+        <button class="sort-btn" [class.active]="sortField === 'score'" (click)="setSort('score')">
+          Score {{ sortField === 'score' ? (sortAsc ? '↑' : '↓') : '' }}
+        </button>
+        <button class="sort-btn" [class.active]="sortField === 'tactic'" (click)="setSort('tactic')">
+          Tactic {{ sortField === 'tactic' ? (sortAsc ? '↑' : '↓') : '' }}
+        </button>
+        <button class="sort-btn" [class.active]="sortField === 'author'" (click)="setSort('author')">
+          Author {{ sortField === 'author' ? (sortAsc ? '↑' : '↓') : '' }}
+        </button>
+      </div>
+
+      <!-- Queue rows -->
+      <ion-list class="queue-list">
+        <div *ngFor="let row of filteredQueue" class="queue-row" (click)="toggleRow(row.commentId)">
+          <div class="queue-row-main">
+            <span class="queue-tactic-dot" [style.background]="tacticColor(row.tactic)"></span>
+            <div class="queue-info">
+              <div class="queue-top">
+                <span class="queue-author">{{ row.author }}</span>
+                <span class="queue-tactic" [style.color]="tacticColor(row.tactic)">
+                  {{ tacticLabel(row.tactic) }}
+                </span>
+                <span class="queue-score" [style.color]="tacticColor(row.tactic)">
+                  {{ (row.score / 2) | number:'1.0-0' }}%
+                </span>
+              </div>
+              <div class="queue-preview">{{ row.preview }}</div>
+              <div class="queue-time muted">{{ formatTs(row.publishTimestamp) }}</div>
+            </div>
+          </div>
+          <!-- Score bar -->
+          <div class="queue-score-bar">
+            <div class="queue-score-fill"
+              [style.width.%]="row.score / 2"
+              [style.background]="tacticColor(row.tactic)">
+            </div>
+          </div>
+        </div>
+      </ion-list>
+
+      <p class="queue-count muted" *ngIf="filteredQueue.length">
+        Showing {{ filteredQueue.length }} of {{ stats.reviewQueue.length }} flagged comments
+      </p>
+
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Export -->
+  <ion-button expand="block" color="medium" (click)="exportCSV()" *ngIf="stats" class="ion-margin-top">
+    <ion-icon slot="start" name="download-outline"></ion-icon>
+    Export Scam Comments CSV
+  </ion-button>
+
+</ion-content>
