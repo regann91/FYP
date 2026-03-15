@@ -90,6 +90,7 @@ export class KandinskyInterfacePage implements OnInit {
   // misc
   protected fullTitle = false;
   protected isFocusModeOn = false;
+  protected ssbLoading = false;
 
   @ViewChild('timelineControls', { static: false }) timelineControls: TimelineControlsComponent;
   @ViewChild('canvas', { static: true }) canvas: CanvasComponent;
@@ -124,12 +125,11 @@ export class KandinskyInterfacePage implements OnInit {
 
   // ── SSB analysis — called from SSB tab header ─────────────────────────────
   async runSSBAnalysis(): Promise<void> {
-    const loading = await createLoading(this.loadingController, 'Analyzing comments…');
-    await loading.present();
+    // const loading = await createLoading(this.loadingController, 'Analyzing comments…');
+    // await loading.present();
 
     this.scamBotService.analyzeComments(this.allComments).subscribe({
       next: (results: any[]) => {
-        loading.dismiss();
         this.lastSSBResults = results;
 
         this.ssbResultsMap = new Map(
@@ -144,7 +144,7 @@ export class KandinskyInterfacePage implements OnInit {
       },
       error: (err) => {
         console.error('SSB analyze failed', err);
-        loading.dismiss();
+        // loading.dismiss();
       }
     });
   }
@@ -186,6 +186,12 @@ export class KandinskyInterfacePage implements OnInit {
     this.post = this.kandinskyService.getActivePost();
     this.maxProgress = this.post.commentCount - 1;
     this.allComments = this.kandinskyService.getActivePostComments();
+    // ── Fire SSB in background — do NOT await ──────────────────────
+    this.ssbLoading = true;
+    this.runSSBAnalysis()
+      .catch(err => console.warn('SSB background run failed:', err))
+      .finally(() => { this.ssbLoading = false; });
+    // ──────────────────────────────────────────────────────────────
     await this.createPostInformationModal();
     this.groupedCommentsByTimestamp = this.kandinskyService.groupCommentsByTimestamp(this.NUM_GROUPS);
     this.spectrumIntervals = this.groupedCommentsByTimestamp.map(g => ({ heightValue: g.comments.length }));
