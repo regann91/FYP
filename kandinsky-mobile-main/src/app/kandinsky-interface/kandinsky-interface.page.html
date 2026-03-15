@@ -56,6 +56,17 @@
             (click)="switchTab('ssb')">
             <ion-icon name="shield-checkmark-outline"></ion-icon>
             SSB Analysis
+            <ion-spinner
+              *ngIf="ssbLoading"
+              name="crescent"
+              style="
+                width: 13px;
+                height: 13px;
+                margin-left: 6px;
+                vertical-align: middle;
+                --color: rgba(255,255,255,0.55);
+              ">
+            </ion-spinner>
             <span class="ssb-badge" *ngIf="scamCommentIds.length">{{ scamCommentIds.length }}</span>
           </button>
         </div>
