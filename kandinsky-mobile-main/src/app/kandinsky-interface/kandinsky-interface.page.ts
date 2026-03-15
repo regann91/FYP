@@ -39,7 +39,7 @@ export class KandinskyInterfacePage implements OnInit {
 
   // ── Scam analysis state ───────────────────────────────────────────────────
   scamResultsMap = new Map<string, ScamResultFull>();
-  scamThreshold  = 85;   // 0-100 scale (API returns raw score 0-200+)
+  scamThreshold  = 0.5;  // 0.0–1.0 scale (API returns normalised score 0.0–1.0)
   scamStats: ScamStats | null = null;
   scamCommentIds: string[] = [];
   scamNodeCount = 0;       // live count from scam-canvas (source of truth for display)
@@ -169,19 +169,21 @@ export class KandinskyInterfacePage implements OnInit {
         next: (results: any[]) => {
           this.lastScamResults = results;
 
+          // ── Use comment_id from the result itself, not positional index ──
           this.scamResultsMap = new Map(
-            results.map((r, i) => {
-              const c = this.allComments[i];
-              return c ? [c.id, r as ScamResultFull] : null;
-            }).filter(Boolean) as [string, ScamResultFull][]
+            results
+              .filter(r => r && r.comment_id)
+              .map(r => [r.comment_id, r as ScamResultFull])
           );
 
-          this.scamStats = this.buildScamStats(this.allComments, results, this.scamThreshold);
+          // For buildScamStats, align results to allComments order via the map
+          const alignedResults = this.allComments.map(c =>
+            this.scamResultsMap.get(c.id) || null
+          );
+
+          this.scamStats = this.buildScamStats(this.allComments, alignedResults, this.scamThreshold);
           this.scamCommentIds = this.scamStats.reviewQueue.map(r => r.commentId);
-
-          // Populate available tactics for the category filter pills
           this.availableTactics = Object.keys(this.scamStats.byTactic);
-
           this.scamAnalysisComplete = true;
           resolve();
         },
@@ -193,7 +195,6 @@ export class KandinskyInterfacePage implements OnInit {
       });
     });
   }
-
   // ── Retry after failure ───────────────────────────────────────────────────
   async retryScamAnalysis(): Promise<void> {
     this.scamLoading = true;
@@ -522,6 +523,7 @@ export class KandinskyInterfacePage implements OnInit {
     let flagged = 0;
     const byTactic: Record<string, number> = {};
     const byRuleTag: Record<string, number> = {};
+    // Histogram over 0.0–1.0 in 10 bins
     const bins: ScamHistogramBin[] = Array.from({ length: 10 }, (_, b) => ({
       start: b / 10, end: (b + 1) / 10, count: 0
     }));
@@ -532,7 +534,8 @@ export class KandinskyInterfacePage implements OnInit {
       const c = comments[i], r = results[i];
       if (!c || !r) continue;
       const score = Number(r.score);
-      if (!isNaN(score)) bins[Math.min(9, Math.floor((score / 200) * 10))].count++;
+      // score is 0.0–1.0
+      if (!isNaN(score)) bins[Math.min(9, Math.floor(score * 10))].count++;
       const isScam = r.label === 'SCAM' && score >= threshold;
       if (!isScam) continue;
       flagged++;

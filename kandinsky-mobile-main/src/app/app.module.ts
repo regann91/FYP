@@ -1,6 +1,7 @@
 // app.module.ts
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import { FormsModule } from '@angular/forms';
 import { ExportService } from './services/export.service';
 import { RouteReuseStrategy } from '@angular/router';
 import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
@@ -16,6 +17,7 @@ import { ScamInsightsModalComponent } from './scam-insights-modal/scam-insights-
   entryComponents: [ScamInsightsModalComponent],
   imports: [
     BrowserModule,
+    FormsModule,
     IonicModule.forRoot({
       mode: 'ios'
     }),

@@ -19,12 +19,11 @@ export interface ScamNodeDatum {
   result: ScamResultFull;
   color: string;
   tactic: string;
-  // Canvas layout
   x: number;
   y: number;
   radius: number;
-  pulsePhase: number;   // 0-2π offset so pulses are staggered
-  pulseSpeed: number;   // radians per frame, scaled by score
+  pulsePhase: number;
+  pulseSpeed: number;
 }
 
 const TACTIC_COLORS: Record<string, string> = {
@@ -72,7 +71,7 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
           <span class="tt-chip" [style.background]="hoveredNode.color + '33'" [style.color]="hoveredNode.color">
             {{ hoveredNode.tactic.replace('SCAM_', '') }}
           </span>
-          <span class="tt-score">{{ (hoveredNode.result.score / 2) | number:'1.0-0' }}%</span>
+          <span class="tt-score">{{ (hoveredNode.result.score * 100) | number:'1.0-0' }}%</span>
         </div>
         <div class="tt-snippet">
           {{ hoveredNode.comment.content | slice:0:100 }}{{ hoveredNode.comment.content.length > 100 ? '…' : '' }}
@@ -98,11 +97,11 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
           <span class="detail-score-label">Scam score</span>
           <div class="detail-score-bar">
             <div class="score-fill"
-              [style.width.%]="selectedNode.result.score / 2"
+              [style.width.%]="selectedNode.result.score * 100"
               [style.background]="selectedNode.color">
             </div>
           </div>
-          <span class="detail-score-num">{{ (selectedNode.result.score / 2) | number:'1.0-0' }}%</span>
+          <span class="detail-score-num">{{ (selectedNode.result.score * 100) | number:'1.0-0' }}%</span>
         </div>
         <div class="detail-signals" *ngIf="selectedNode.result.signals && selectedNode.result.signals.length">
           <span class="detail-label">Signals</span>
@@ -220,37 +219,34 @@ const DEFAULT_SCAM_COLOR = '#ef4444';
 })
 export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
 
-  @Input() comments:     SocialComment[] = [];
-  @Input() scamResults:  Map<string, ScamResultFull> = new Map();
-  @Input() threshold:    number = 85;
-  @Input() tacticFilters: string[] = [];   // empty = show all
-  @Input() isActive:     boolean = false;
+  @Input() comments:      SocialComment[] = [];
+  @Input() scamResults:   Map<string, ScamResultFull> = new Map();
+  @Input() threshold:     number = 0.5;
+  @Input() tacticFilters: string[] = [];
+  @Input() isActive:      boolean = false;
 
-  @Output() nodeSelected    = new EventEmitter<{ comment: SocialComment; result: ScamResultFull } | null>();
+  @Output() nodeSelected     = new EventEmitter<{ comment: SocialComment; result: ScamResultFull } | null>();
   @Output() scamCountChanged = new EventEmitter<number>();
 
-  // Template refs
   private canvasEl: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
 
-  // State
-  allScamNodes:   ScamNodeDatum[] = [];
-  visibleNodes:   ScamNodeDatum[] = [];
-  benignNodes:    Array<{ x: number; y: number; radius: number; alpha: number }> = [];
+  allScamNodes:  ScamNodeDatum[] = [];
+  visibleNodes:  ScamNodeDatum[] = [];
+  benignNodes:   Array<{ x: number; y: number; radius: number; alpha: number }> = [];
 
-  selectedNode:   ScamNodeDatum | null = null;
-  hoveredNode:    ScamNodeDatum | null = null;
+  selectedNode:  ScamNodeDatum | null = null;
+  hoveredNode:   ScamNodeDatum | null = null;
   tooltipX = 0;
   tooltipY = 0;
 
   resultsReady = false;
 
   private animFrame: number;
-  private frame = 0;
   private width  = 0;
   private height = 0;
   private boundMouseMove: (e: MouseEvent) => void;
-  private boundClick: (e: MouseEvent) => void;
+  private boundClick:     (e: MouseEvent) => void;
 
   constructor(private zone: NgZone) {}
 
@@ -264,7 +260,7 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
       this.applyFilters();
     }
     if (changes.isActive && this.isActive) {
-      // Re-init canvas once tab becomes visible
+      // Tab just became visible — init canvas with real dimensions, then re-layout
       setTimeout(() => this.initCanvas(), 60);
     }
   }
@@ -277,7 +273,7 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  // ── Bootstrap ────────────────────────────────────────────────────────────
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
   private initCanvas() {
     this.canvasEl = document.querySelector<HTMLCanvasElement>('canvas.scam-canvas');
     if (!this.canvasEl) return;
@@ -285,7 +281,6 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     this.ctx = this.canvasEl.getContext('2d');
     this.resize();
 
-    // Re-bind listeners each time tab activates
     if (this.boundMouseMove) {
       this.canvasEl.removeEventListener('mousemove', this.boundMouseMove);
       this.canvasEl.removeEventListener('click', this.boundClick);
@@ -297,9 +292,14 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     this.canvasEl.addEventListener('mousemove', this.boundMouseMove);
     this.canvasEl.addEventListener('click', this.boundClick);
 
+    // ── KEY FIX: always re-layout when canvas becomes visible ─────────────
+    // buildNodes() may have run while the canvas was hidden (width=0, height=0),
+    // so all nodes were placed at (0,0). Now that we have real dimensions, redo it.
     if (this.allScamNodes.length > 0 || this.resultsReady) {
       this.layoutNodes();
     }
+
+    this.stopAnimation();
     this.startAnimation();
   }
 
@@ -313,7 +313,7 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
   }
 
-  // ── Build node data from scamResults ─────────────────────────────────────
+  // ── Build nodes from scamResults ──────────────────────────────────────────
   private buildNodes() {
     this.allScamNodes = [];
     this.benignNodes  = [];
@@ -325,18 +325,16 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
       if (isScam) {
         const tactic = r.tactic || 'SCAM_BOT';
         const score  = Number(r.score);
-        // Radius scales with score: 8–28px
-        const radius = 8 + Math.min(20, (score / 200) * 20);
+        const radius = 8 + Math.min(20, score * 20);
         this.allScamNodes.push({
           id: c.id, comment: c, result: r,
           color: TACTIC_COLORS[tactic] || DEFAULT_SCAM_COLOR,
           tactic,
           x: 0, y: 0, radius,
           pulsePhase: Math.random() * Math.PI * 2,
-          pulseSpeed: 0.018 + (score / 200) * 0.04   // faster pulse = higher score
+          pulseSpeed: 0.018 + score * 0.04
         });
       } else {
-        // Placeholder benign node — placed in layout but drawn dimly
         this.benignNodes.push({ x: 0, y: 0, radius: 5, alpha: 0.07 });
       }
     });
@@ -344,13 +342,15 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     this.resultsReady = true;
     this.scamCountChanged.emit(this.allScamNodes.length);
     this.applyFilters();
-    this.layoutNodes();
-    if (this.isActive && !this.animFrame) {
-      setTimeout(() => this.initCanvas(), 60);
+
+    // Only layout now if we already have valid canvas dimensions
+    // (i.e. tab is already visible). If not, initCanvas() will layout later.
+    if (this.width > 0 && this.height > 0) {
+      this.layoutNodes();
     }
   }
 
-  // ── Apply tactic filters ─────────────────────────────────────────────────
+  // ── Apply tactic filters ──────────────────────────────────────────────────
   private applyFilters() {
     if (!this.tacticFilters || this.tacticFilters.length === 0) {
       this.visibleNodes = this.allScamNodes.slice();
@@ -362,7 +362,7 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     this.scamCountChanged.emit(this.visibleNodes.length);
   }
 
-  // ── Layout: pack nodes in a loose cluster ─────────────────────────────────
+  // ── Fibonacci spiral layout ───────────────────────────────────────────────
   private layoutNodes() {
     if (!this.width || !this.height) return;
 
@@ -370,17 +370,15 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     const total    = allNodes.length;
     if (!total) return;
 
-    // Simple sunflower/Fibonacci spiral layout
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-    const area = this.width * this.height * 0.65;
+    const area    = this.width * this.height * 0.65;
     const spacing = Math.sqrt(area / total);
 
     allNodes.forEach((n, i) => {
-      const r   = spacing * Math.sqrt(i + 0.5);
+      const r     = spacing * Math.sqrt(i + 0.5);
       const theta = i * goldenAngle;
       n.x = this.width  / 2 + r * Math.cos(theta);
       n.y = this.height / 2 + r * Math.sin(theta);
-      // Clamp to canvas bounds with padding
       const pad = (n as ScamNodeDatum).radius || 6;
       n.x = Math.max(pad + 20, Math.min(this.width  - pad - 20, n.x));
       n.y = Math.max(pad + 60, Math.min(this.height - pad - 20, n.y));
@@ -406,15 +404,13 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
 
   private drawFrame() {
     if (!this.ctx || !this.width) return;
-    this.frame++;
     const ctx = this.ctx;
     const W = this.width, H = this.height;
 
-    // Clear with slight trail for glow effect
     ctx.fillStyle = 'rgba(17,17,17,0.82)';
     ctx.fillRect(0, 0, W, H);
 
-    // 1. Draw benign nodes (very dim)
+    // 1. Benign nodes — very dim
     this.benignNodes.forEach(n => {
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
@@ -422,19 +418,18 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
       ctx.fill();
     });
 
-    // 2. Draw scam nodes — all slightly dim if filter active
-    const hasFilter = this.tacticFilters && this.tacticFilters.length > 0;
+    // 2. Scam nodes
+    const hasFilter  = this.tacticFilters && this.tacticFilters.length > 0;
     const visibleSet = new Set(this.visibleNodes.map(n => n.id));
 
     this.allScamNodes.forEach(n => {
       n.pulsePhase += n.pulseSpeed;
-      const pulse = (Math.sin(n.pulsePhase) + 1) / 2;   // 0–1
+      const pulse = (Math.sin(n.pulsePhase) + 1) / 2;
 
-      const isVisible = !hasFilter || visibleSet.has(n.id);
+      const isVisible  = !hasFilter || visibleSet.has(n.id);
       const isSelected = this.selectedNode && this.selectedNode.id === n.id;
 
       if (!isVisible) {
-        // Draw dimmed
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.radius * 0.65, 0, Math.PI * 2);
         ctx.fillStyle = n.color + '1a';
@@ -442,7 +437,7 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
         return;
       }
 
-      // ── Outer glow rings ──────────────────────────────────────────
+      // Outer glow
       const glowRadius = n.radius + 8 + pulse * 18;
       const glowAlpha  = 0.08 + pulse * 0.18;
       const grd = ctx.createRadialGradient(n.x, n.y, n.radius * 0.5, n.x, n.y, glowRadius);
@@ -453,10 +448,10 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
       ctx.fillStyle = grd;
       ctx.fill();
 
-      // Second outer ring for selected
+      // Selected extra glow
       if (isSelected) {
         const selGlow = n.radius + 20 + pulse * 26;
-        const selGrd = ctx.createRadialGradient(n.x, n.y, n.radius, n.x, n.y, selGlow);
+        const selGrd  = ctx.createRadialGradient(n.x, n.y, n.radius, n.x, n.y, selGlow);
         selGrd.addColorStop(0, this.hexToRgba(n.color, 0.18));
         selGrd.addColorStop(1, this.hexToRgba(n.color, 0));
         ctx.beginPath();
@@ -465,8 +460,10 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
         ctx.fill();
       }
 
-      // ── Core circle ───────────────────────────────────────────────
-      const coreGrd = ctx.createRadialGradient(n.x - n.radius * 0.3, n.y - n.radius * 0.3, 0, n.x, n.y, n.radius);
+      // Core circle
+      const coreGrd = ctx.createRadialGradient(
+        n.x - n.radius * 0.3, n.y - n.radius * 0.3, 0, n.x, n.y, n.radius
+      );
       coreGrd.addColorStop(0, this.lighten(n.color, 0.55));
       coreGrd.addColorStop(1, n.color);
       ctx.beginPath();
@@ -474,7 +471,7 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
       ctx.fillStyle = coreGrd;
       ctx.fill();
 
-      // ── Selected ring ─────────────────────────────────────────────
+      // Selection ring
       if (isSelected) {
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.radius + 4, 0, Math.PI * 2);
@@ -483,7 +480,7 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
         ctx.stroke();
       }
 
-      // ── Author initial ────────────────────────────────────────────
+      // Author initial
       if (n.radius >= 10) {
         ctx.fillStyle = 'rgba(255,255,255,0.88)';
         ctx.font = `bold ${Math.max(8, n.radius * 0.55)}px sans-serif`;
@@ -494,20 +491,16 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
-  // ── Mouse events ─────────────────────────────────────────────────────────
+  // ── Mouse events ──────────────────────────────────────────────────────────
   private onMouseMove(e: MouseEvent) {
     if (!this.canvasEl) return;
     const rect = this.canvasEl.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-
     const hit = this.hitTest(mx, my);
     this.hoveredNode = hit;
-
     if (hit) {
-      // Position tooltip — keep inside bounds
-      let tx = mx + 16;
-      let ty = my - 8;
+      let tx = mx + 16, ty = my - 8;
       if (tx + 244 > this.width)  tx = mx - 248;
       if (ty + 160 > this.height) ty = this.height - 164;
       if (ty < 0) ty = 4;
@@ -521,7 +514,6 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
     const rect = this.canvasEl.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-
     const hit = this.hitTest(mx, my);
     if (hit) {
       e.stopPropagation();
@@ -544,7 +536,6 @@ export class ScamCanvasComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private hitTest(mx: number, my: number): ScamNodeDatum | null {
-    // Test visible nodes first, largest radius first
     const sorted = [...this.visibleNodes].sort((a, b) => b.radius - a.radius);
     for (const n of sorted) {
       const dx = mx - n.x, dy = my - n.y;
