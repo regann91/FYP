@@ -1,3 +1,4 @@
+// kandinsky-interface.module.ts
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { HighlightPipe } from '../highlight.pipe';
 import { PostInformationModalComponent } from './post-information-modal/post-information-modal.component';
 import { SpectrumControlsComponent } from './spectrum-controls/spectrum-controls.component';
 import { SanitizeHtmlPipe } from '../sanitize-html.pipe';
-import { SsbCanvasComponent } from './ssb-canvas/ssb-canvas.component';
+import { ScamCanvasComponent } from './scam-canvas/scam-canvas.component';
 
 @NgModule({
   imports: [
@@ -29,7 +30,7 @@ import { SsbCanvasComponent } from './ssb-canvas/ssb-canvas.component';
     SpectrumControlsComponent,
     HighlightPipe,
     SanitizeHtmlPipe,
-    SsbCanvasComponent,
+    ScamCanvasComponent,
   ],
   entryComponents: [
     PostInformationModalComponent

@@ -1,0 +1,233 @@
+// scam-insights-modal/scam-insights-modal.component.scss
+
+// ── Risk Card ─────────────────────────────────────────────────────────────
+.risk-card {
+  margin-bottom: 12px;
+}
+
+.risk-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.risk-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+
+.risk-level-text {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.risk-sub {
+  font-size: 9px;
+  color: #666;
+  margin-top: 1px;
+}
+
+.risk-kpis {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.kpi-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #e5e5e5;
+  line-height: 1;
+}
+
+.kpi-label {
+  font-size: 10px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.risk-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.risk-detail-label {
+  color: #666;
+}
+
+.risk-detail-count {
+  color: #555;
+}
+
+.tactic-chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.top-signals {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.signal-tag {
+  font-size: 9px;
+  padding: 2px 7px;
+  background: #222;
+  border: 1px solid #2a2a2a;
+  border-radius: 5px;
+  color: #666;
+}
+
+// ── Threshold ─────────────────────────────────────────────────────────────
+.threshold-display {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.threshold-val {
+  font-size: 28px;
+  font-weight: 700;
+  color: #e5e5e5;
+}
+
+.threshold-unit {
+  font-size: 14px;
+  color: #555;
+  margin-left: 4px;
+}
+
+.threshold-hint {
+  font-size: 11px;
+  color: #555;
+  text-align: center;
+  margin-top: 4px;
+}
+
+// ── Review Queue ──────────────────────────────────────────────────────────
+.queue-search {
+  --background: #1a1a1a;
+  --border-radius: 10px;
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.sort-label {
+  font-size: 11px;
+  color: #555;
+}
+
+.sort-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  background: #1e1e1e;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &.active {
+    background: #252525;
+    border-color: #444;
+    color: #ccc;
+  }
+}
+
+.queue-list {
+  padding: 0;
+}
+
+.queue-row {
+  border-bottom: 1px solid #1e1e1e;
+  padding: 10px 0;
+  cursor: pointer;
+
+  &:last-child { border-bottom: none; }
+}
+
+.queue-row-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.queue-tactic-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.queue-info { flex: 1; min-width: 0; }
+
+.queue-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+
+.queue-author { font-size: 12px; font-weight: 600; color: #ccc; }
+.queue-tactic { font-size: 10px; font-weight: 600; }
+.queue-score  { font-size: 10px; font-weight: 700; margin-left: auto; }
+.queue-preview { font-size: 11px; color: #777; line-height: 1.4; margin-bottom: 3px; }
+.queue-time   { font-size: 10px; }
+
+.queue-score-bar {
+  height: 2px;
+  background: #1e1e1e;
+  border-radius: 1px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.queue-score-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.3s;
+}
+
+.queue-count {
+  font-size: 11px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.muted { color: #555; }
+
+// ── D3 chart base ─────────────────────────────────────────────────────────
+svg text { fill: #666; }
+.domain, .tick line { stroke: #2a2a2a; }

@@ -1,3 +1,4 @@
+// kandinsky-interface.page.ts
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CanvasComponent, ConcentricCircle, Circle } from './canvas/canvas.component';
 import { SocialComment, SocialPlatform, SocialPost } from '../models/models';
@@ -18,9 +19,13 @@ import {
   MINIMIZE_REFERENCE_COMMENT, NUM_GROUPS
 } from 'src/app/config';
 import { buildLinearScale, createLoading, isConcentricCircleDatum, scrollToElement } from '../utils';
-import { SSBResultFull } from './ssb-canvas/ssb-canvas.component';
+import { ScamResultFull } from './scam-canvas/scam-canvas.component';
 
-export type ActiveTab = 'visualisation' | 'ssb';
+export type ActiveTab = 'visualisation' | 'scam';
+
+// Search highlight colours (matching the original page's convention)
+const SEARCH_HIGHLIGHT_COLOR   = 'yellow';
+const SEARCH_HIGHLIGHT_TEXT    = 'black';
 
 @Component({
   selector: 'ksky-kandinsky-interface',
@@ -32,15 +37,22 @@ export class KandinskyInterfacePage implements OnInit {
   // ── tab state ─────────────────────────────────────────────────────────────
   activeTab: ActiveTab = 'visualisation';
 
-  // ── SSB state (shared between tab bar badge and SSB canvas) ───────────────
-  ssbResultsMap = new Map<string, SSBResultFull>();
-  ssbThreshold  = 85;   // 0-100 scale (API returns raw score 0-200+)
-  ssbStats: SSBStats | null = null;
+  // ── Scam analysis state ───────────────────────────────────────────────────
+  scamResultsMap = new Map<string, ScamResultFull>();
+  scamThreshold  = 85;   // 0-100 scale (API returns raw score 0-200+)
+  scamStats: ScamStats | null = null;
   scamCommentIds: string[] = [];
+  scamNodeCount = 0;       // live count from scam-canvas (source of truth for display)
   allComments: SocialComment[] = [];
+  scamAnalysisComplete = false;   // gates the tab — becomes true once first run finishes
+  scamAnalysisFailed   = false;   // allows retry UI
 
-  // Internal SSB fields (kept for CSV export / insights modal)
-  private lastSSBResults: SSBResultFull[] = [];
+  // Internal scam fields (kept for CSV export / insights modal)
+  private lastScamResults: ScamResultFull[] = [];
+
+  // ── Category filter (moved from modal to main view) ───────────────────────
+  availableTactics: string[] = [];
+  activeTacticFilters: string[] = [];   // empty = all shown
 
   // ── post data ─────────────────────────────────────────────────────────────
   protected post: SocialPost;
@@ -90,7 +102,7 @@ export class KandinskyInterfacePage implements OnInit {
   // misc
   protected fullTitle = false;
   protected isFocusModeOn = false;
-  protected ssbLoading = false;
+  protected scamLoading = false;
 
   @ViewChild('timelineControls', { static: false }) timelineControls: TimelineControlsComponent;
   @ViewChild('canvas', { static: true }) canvas: CanvasComponent;
@@ -116,6 +128,8 @@ export class KandinskyInterfacePage implements OnInit {
 
   // ── tab switching ─────────────────────────────────────────────────────────
   switchTab(tab: ActiveTab) {
+    // Guard: scam tab only navigable once analysis is complete
+    if (tab === 'scam' && !this.scamAnalysisComplete) return;
     this.activeTab = tab;
     // Reset canvas zoom when returning to visualisation tab
     if (tab === 'visualisation') {
@@ -123,35 +137,75 @@ export class KandinskyInterfacePage implements OnInit {
     }
   }
 
-  // ── SSB analysis — called from SSB tab header ─────────────────────────────
-  async runSSBAnalysis(): Promise<void> {
-    // const loading = await createLoading(this.loadingController, 'Analyzing comments…');
-    // await loading.present();
+  // ── Category filter toggle (called from main view pill buttons) ───────────
+  toggleTacticFilter(tactic: string) {
+    const idx = this.activeTacticFilters.indexOf(tactic);
+    if (idx === -1) {
+      this.activeTacticFilters = [...this.activeTacticFilters, tactic];
+    } else {
+      this.activeTacticFilters = this.activeTacticFilters.filter(t => t !== tactic);
+    }
+  }
 
-    this.scamBotService.analyzeComments(this.allComments).subscribe({
-      next: (results: any[]) => {
-        this.lastSSBResults = results;
+  isTacticFilterActive(tactic: string): boolean {
+    return this.activeTacticFilters.includes(tactic);
+  }
 
-        this.ssbResultsMap = new Map(
-          results.map((r, i) => {
-            const c = this.allComments[i];
-            return c ? [c.id, r as SSBResultFull] : null;
-          }).filter(Boolean) as [string, SSBResultFull][]
-        );
+  clearTacticFilters() {
+    this.activeTacticFilters = [];
+  }
 
-        this.ssbStats = this.buildSSBStats(this.allComments, results, this.ssbThreshold);
-        this.scamCommentIds = this.ssbStats.reviewQueue.map(r => r.commentId);
-      },
-      error: (err) => {
-        console.error('SSB analyze failed', err);
-        // loading.dismiss();
-      }
+  // ── Scam canvas count output ──────────────────────────────────────────────
+  onScamCountChanged(count: number) {
+    this.scamNodeCount = count;
+  }
+
+  // ── Scam analysis — called automatically from initialiseComponents ─────────
+  async runScamAnalysis(): Promise<void> {
+    this.scamAnalysisFailed = false;
+
+    return new Promise<void>((resolve, reject) => {
+      this.scamBotService.analyzeComments(this.allComments).subscribe({
+        next: (results: any[]) => {
+          this.lastScamResults = results;
+
+          this.scamResultsMap = new Map(
+            results.map((r, i) => {
+              const c = this.allComments[i];
+              return c ? [c.id, r as ScamResultFull] : null;
+            }).filter(Boolean) as [string, ScamResultFull][]
+          );
+
+          this.scamStats = this.buildScamStats(this.allComments, results, this.scamThreshold);
+          this.scamCommentIds = this.scamStats.reviewQueue.map(r => r.commentId);
+
+          // Populate available tactics for the category filter pills
+          this.availableTactics = Object.keys(this.scamStats.byTactic);
+
+          this.scamAnalysisComplete = true;
+          resolve();
+        },
+        error: (err) => {
+          console.error('Scam analyze failed', err);
+          this.scamAnalysisFailed = true;
+          reject(err);
+        }
+      });
     });
   }
 
-  // ── called by SSB canvas when user clicks a node ──────────────────────────
-  onSSBNodeSelected(data: { comment: SocialComment; result: SSBResultFull } | null) {
-    // Nothing needed at page level currently — detail panel is inside ssb-canvas
+  // ── Retry after failure ───────────────────────────────────────────────────
+  async retryScamAnalysis(): Promise<void> {
+    this.scamLoading = true;
+    try {
+      await this.runScamAnalysis();
+    } catch { /* already flagged in runScamAnalysis */ }
+    finally { this.scamLoading = false; }
+  }
+
+  // ── called by Scam canvas when user clicks a node ────────────────────────
+  onScamNodeSelected(data: { comment: SocialComment; result: ScamResultFull } | null) {
+    // Nothing needed at page level currently — detail panel is inside scam-canvas
   }
 
   // ── retrieve operator ─────────────────────────────────────────────────────
@@ -186,12 +240,14 @@ export class KandinskyInterfacePage implements OnInit {
     this.post = this.kandinskyService.getActivePost();
     this.maxProgress = this.post.commentCount - 1;
     this.allComments = this.kandinskyService.getActivePostComments();
-    // ── Fire SSB in background — do NOT await ──────────────────────
-    this.ssbLoading = true;
-    this.runSSBAnalysis()
-      .catch(err => console.warn('SSB background run failed:', err))
-      .finally(() => { this.ssbLoading = false; });
-    // ──────────────────────────────────────────────────────────────
+
+    // ── Fire Scam analysis in background — do NOT await ───────────────────
+    this.scamLoading = true;
+    this.runScamAnalysis()
+      .catch(err => console.warn('Scam background run failed:', err))
+      .finally(() => { this.scamLoading = false; });
+    // ─────────────────────────────────────────────────────────────────────
+
     await this.createPostInformationModal();
     this.groupedCommentsByTimestamp = this.kandinskyService.groupCommentsByTimestamp(this.NUM_GROUPS);
     this.spectrumIntervals = this.groupedCommentsByTimestamp.map(g => ({ heightValue: g.comments.length }));
@@ -203,11 +259,6 @@ export class KandinskyInterfacePage implements OnInit {
   }
 
   // ── post information modal ────────────────────────────────────────────────
-  protected async displayPostInformation(): Promise<void> {
-    await this.postInformationModal.present();
-    this.postInformationModal.onDidDismiss().then(async () => await this.createPostInformationModal());
-  }
-
   private async createPostInformationModal(): Promise<void> {
     this.postInformationModal = await this.modalController.create({
       component: PostInformationModalComponent,
@@ -219,6 +270,11 @@ export class KandinskyInterfacePage implements OnInit {
       },
       cssClass: 'auto-sized-modal'
     });
+  }
+
+  protected async displayPostInformation(): Promise<void> {
+    await this.postInformationModal.present();
+    this.postInformationModal.onDidDismiss().then(async () => await this.createPostInformationModal());
   }
 
   private async reloadDataHandler(): Promise<void> {
@@ -241,7 +297,7 @@ export class KandinskyInterfacePage implements OnInit {
     this.postInformationModal.dismiss();
   }
 
-  // ── circle selection ──────────────────────────────────────────────────────
+  // ── canvas events ─────────────────────────────────────────────────────────
   protected selectConcentricCircle(pivotId?: string, targetCircleId?: string): void {
     this.canvas.selectByPivotId(pivotId);
     if (pivotId && targetCircleId) scrollToElement(`comment-${targetCircleId}`);
@@ -260,7 +316,43 @@ export class KandinskyInterfacePage implements OnInit {
     this.updateSimilarityCommentsProps(circleDatum);
   }
 
-  // ── timeline ──────────────────────────────────────────────────────────────
+  private updateDetailedCommentSectionProps(concentricCircleDatum: ConcentricCircle): void {
+    this.selectedConcentricCircle = concentricCircleDatum;
+    this.isShowCommentsOn = !!concentricCircleDatum;
+    this.visibleCommentsCount = concentricCircleDatum
+      ? this.canvas.countDisplayedCircles(concentricCircleDatum) : 0;
+    if (!concentricCircleDatum) {
+      this.commentContext = null;
+      this.commentRepliesContexts = [];
+    } else {
+      this.retrieve(concentricCircleDatum);
+    }
+  }
+
+  private updateSimilarityCommentsProps(referenceCircleDatum?: Circle): void {
+    if (!referenceCircleDatum) {
+      this.isShowSimilarCommentsOn = false;
+      this.visibleSimilarCommentsCount = 0;
+      this.canvas.setFocused([]);
+      return;
+    }
+    const referenceComment = this.kandinskyService.getComment(referenceCircleDatum.index);
+    const similarCommentScores = this.kandinskyService.getSimilarCommentScores(referenceComment);
+    const similarCommentIds = Object.keys(similarCommentScores);
+    const similarCommentCircles = this.canvas.getCircleData(similarCommentIds);
+    this.barWidthScale = this.buildLikeCountBarWidthScale(referenceCircleDatum, ...similarCommentCircles);
+    this.canvas.setFocused(similarCommentIds);
+    this.isShowSimilarCommentsOn = true;
+    this.retrieve([referenceCircleDatum, ...similarCommentCircles]);
+    this.similarCommentsContexts.forEach(ctx =>
+      ctx.context.analytics.similarity.score = similarCommentScores[ctx.context.comment.id]
+    );
+    this.visibleSimilarCommentsCount = this.canvas.countDisplayedCircles(similarCommentCircles);
+  }
+
+  // ── timeline controls ─────────────────────────────────────────────────────
+  // `timestamp` is an @Input on CanvasComponent — Angular propagates it
+  // automatically when we assign this.timestamp, so no setTimestamp() call needed.
   protected timestampChange(progress: number): void {
     setTimeout(() => {
       this.updateCommentContexts();
@@ -268,29 +360,62 @@ export class KandinskyInterfacePage implements OnInit {
         this.canvas.selectByPivotId(null);
       }
     });
-    this.timestamp = progress !== -1 ? this.kandinskyService.getCommentTimestamp(progress) : 0;
+    this.timestamp = progress !== -1
+      ? this.kandinskyService.getCommentTimestamp(progress)
+      : 0;
+  }
+
+  // ── spectrum controls ─────────────────────────────────────────────────────
+  protected toggleSpectrumMode(): void {
+    this.isSpectrumModeOn = !this.isSpectrumModeOn;
+    this.canvas.resetZoom();
+    if (this.isSpectrumModeOn) {
+      this.timestampChange(this.maxProgress);
+    } else {
+      this.canvas.setHighlighted([]);
+    }
+  }
+
+  protected spectrumRangeChange(): void {
+    const lowerIdx = this.spectrumRange.lower === -1 ? 0 : this.spectrumRange.lower;
+    const upperIdx = this.spectrumRange.upper === -1 ? 0 : this.spectrumRange.upper;
+    this.spectrumStartTime = this.groupedCommentsByTimestamp[lowerIdx].startTimestamp;
+    this.spectrumEndTime   = this.groupedCommentsByTimestamp[upperIdx].endTimestamp;
+    let commentIds: string[] = [];
+    for (let i = lowerIdx; i <= upperIdx; i++) {
+      commentIds.push(...this.groupedCommentsByTimestamp[i].comments.map(c => c.id));
+    }
+    this.canvas.setHighlighted(commentIds);
+    setTimeout(() => this.updateCommentContexts());
   }
 
   // ── search ────────────────────────────────────────────────────────────────
   protected search(query: string = ''): void {
     this.isSearchFocusModeOn = query.length > 0;
+    // Use the correct service method name: searchComments
     this.searchResult = this.kandinskyService.searchComments(query);
     this.canvas.setFocused(Object.keys(this.searchResult));
 
+    // Update highlight options on already-visible comment contexts
     const commentContextsToUpdate: CommentItemContext[] = [];
-    if (this.isShowCommentsOn) commentContextsToUpdate.push(this.commentContext, ...this.commentRepliesContexts);
-    if (this.isShowSimilarCommentsOn) commentContextsToUpdate.push(this.referenceCommentContext, ...this.similarCommentsContexts);
+    if (this.isShowCommentsOn) {
+      commentContextsToUpdate.push(this.commentContext, ...this.commentRepliesContexts);
+    }
+    if (this.isShowSimilarCommentsOn) {
+      commentContextsToUpdate.push(this.referenceCommentContext, ...this.similarCommentsContexts);
+    }
 
     commentContextsToUpdate.filter(c => c && c.context.display.visible).forEach(c => {
       const match = this.searchResult[c.context.comment.id];
-      c.context.display.highlightOptions = [
-        c.context.display.highlightOptions[0],
-        { ...c.context.display.highlightOptions[1], indices: match || [] }
-      ];
+      // HighlightOption shape: { indices, color, textColor } — no 'query' field
+      c.context.display.highlightOptions = match
+        ? [{ indices: match, color: SEARCH_HIGHLIGHT_COLOR, textColor: SEARCH_HIGHLIGHT_TEXT }]
+        : [];
     });
 
     this.searchResultIds = this.kandinskyService.getActivePostComments()
-      .filter(c => this.searchResult[c.id] !== undefined).map(c => c.id);
+      .filter(c => this.searchResult[c.id] !== undefined)
+      .map(c => c.id);
     this.currentSearchIndex = -1;
   }
 
@@ -315,10 +440,12 @@ export class KandinskyInterfacePage implements OnInit {
     this.goToSearchResult(this.searchResultIds[this.currentSearchIndex]);
   }
 
+  // Navigate to a search result using the canvas's existing selectByPivotId API
   private goToSearchResult(commentId: string): void {
     const comments = this.kandinskyService.getActivePostComments();
     const target = comments.find(c => c.id === commentId);
     if (!target) return;
+    // Walk up to find the root pivot (top-level comment)
     let pivotId = target.id;
     let parentId = target.parentCommentId;
     while (parentId) {
@@ -330,46 +457,23 @@ export class KandinskyInterfacePage implements OnInit {
     this.selectConcentricCircle(pivotId, commentId);
   }
 
-  // ── spectrum ──────────────────────────────────────────────────────────────
-  protected toggleSpectrumMode(): void {
-    this.isSpectrumModeOn = !this.isSpectrumModeOn;
-    this.canvas.resetZoom();
-    if (this.isSpectrumModeOn) {
-      this.timestampChange(this.maxProgress);
-    } else {
-      this.canvas.setHighlighted([]);
-    }
-  }
-
-  protected spectrumRangeChange(): void {
-    const lowerIdx = this.spectrumRange.lower === -1 ? 0 : this.spectrumRange.lower;
-    const upperIdx = this.spectrumRange.upper === -1 ? 0 : this.spectrumRange.upper;
-    this.spectrumStartTime = this.groupedCommentsByTimestamp[lowerIdx].startTimestamp;
-    this.spectrumEndTime   = this.groupedCommentsByTimestamp[upperIdx].endTimestamp;
-    let commentIds: string[] = [];
-    for (let i = lowerIdx; i <= upperIdx; i++) {
-      commentIds.push(...this.groupedCommentsByTimestamp[i].comments.map(c => c.id));
-    }
-    this.canvas.setHighlighted(commentIds);
-    setTimeout(() => this.updateCommentContexts());
-  }
-
-  // ── SSB insights modal ────────────────────────────────────────────────────
-  async openSSBInsights(): Promise<void> {
-    if (!this.ssbStats) return;
+  // ── Scam insights modal ───────────────────────────────────────────────────
+  async openScamInsights(): Promise<void> {
+    if (!this.scamStats) return;
     const modal = await this.modalController.create({
-      component: (await import('../ssb-insights-modal/ssb-insights-modal.component')).SSBInsightsModalComponent as any,
+      component: (await import('../scam-insights-modal/scam-insights-modal.component')).ScamInsightsModalComponent as any,
       componentProps: {
-        stats: this.ssbStats,
-        threshold: this.ssbThreshold,
+        stats: this.scamStats,
+        threshold: this.scamThreshold,
         onThresholdChange: (t: number) => {
-          this.ssbThreshold = t;
-          this.ssbStats = this.buildSSBStats(this.allComments, this.lastSSBResults, t);
-          this.scamCommentIds = this.ssbStats.reviewQueue.map(r => r.commentId);
-          // Re-trigger SSB canvas to rebuild with new threshold
-          this.ssbResultsMap = new Map(this.ssbResultsMap);
+          this.scamThreshold = t;
+          this.scamStats = this.buildScamStats(this.allComments, this.lastScamResults, t);
+          this.scamCommentIds = this.scamStats.reviewQueue.map(r => r.commentId);
+          this.availableTactics = Object.keys(this.scamStats.byTactic);
+          // Re-trigger scam canvas to rebuild with new threshold
+          this.scamResultsMap = new Map(this.scamResultsMap);
         },
-        onExportCSV: () => this.downloadSSBScamsCSV()
+        onExportCSV: () => this.downloadScamCSV()
       },
       cssClass: 'auto-sized-modal'
     });
@@ -377,19 +481,19 @@ export class KandinskyInterfacePage implements OnInit {
   }
 
   // ── CSV export ────────────────────────────────────────────────────────────
-  downloadSSBScamsCSV(): void {
-    if (!this.lastSSBResults.length) return;
+  downloadScamCSV(): void {
+    if (!this.lastScamResults.length) return;
 
     const header = ['comment_id','author','publish_timestamp','score','tactic','label','text'];
     const rows = [header.join(',')];
-    const n = Math.min(this.allComments.length, this.lastSSBResults.length);
+    const n = Math.min(this.allComments.length, this.lastScamResults.length);
 
     for (let i = 0; i < n; i++) {
       const c = this.allComments[i];
-      const r = this.lastSSBResults[i];
+      const r = this.lastScamResults[i];
       if (!r || r.label !== 'SCAM') continue;
       const score = Number(r.score);
-      if (isNaN(score) || score < this.ssbThreshold) continue;
+      if (isNaN(score) || score < this.scamThreshold) continue;
       rows.push([
         this.csvEsc(c.id), this.csvEsc(c.authorName),
         this.csvEsc(String(c.publishTimestamp)), this.csvEsc(String(score)),
@@ -401,7 +505,7 @@ export class KandinskyInterfacePage implements OnInit {
     const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `ssb_scams_${Date.now()}.csv`;
+    a.download = `scam_comments_${Date.now()}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -412,16 +516,16 @@ export class KandinskyInterfacePage implements OnInit {
     return /[,"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
 
-  // ── SSB stats builder (reused by insights modal) ──────────────────────────
-  private buildSSBStats(comments: SocialComment[], results: any[], threshold: number): SSBStats {
+  // ── Scam stats builder ────────────────────────────────────────────────────
+  private buildScamStats(comments: SocialComment[], results: any[], threshold: number): ScamStats {
     const total = comments.length;
     let flagged = 0;
     const byTactic: Record<string, number> = {};
     const byRuleTag: Record<string, number> = {};
-    const bins: SSBHistogramBin[] = Array.from({ length: 10 }, (_, b) => ({
+    const bins: ScamHistogramBin[] = Array.from({ length: 10 }, (_, b) => ({
       start: b / 10, end: (b + 1) / 10, count: 0
     }));
-    const reviewQueue: SSBReviewRow[] = [];
+    const reviewQueue: ScamReviewRow[] = [];
     const n = Math.min(comments.length, results.length);
 
     for (let i = 0; i < n; i++) {
@@ -457,36 +561,44 @@ export class KandinskyInterfacePage implements OnInit {
   } = {}): CommentItemContext {
 
     const comment = this.kandinskyService.getComment(circleDatum.index);
-    const searchResult = this.searchResult ? this.searchResult[comment.id] : null;
-    const totalReplyCount = comment.commentCount > 0 ? this.canvas.countDisplayedCircles(circleDatum.children) : 0;
-    const similarCommentsCount = Object.keys(this.kandinskyService.getSimilarCommentScores(comment)).length;
-    const topicIndices = [].concat.apply([], [...Object.values(comment.analytics.topics)].map((t: any) => t.indices));
-    const barParams = this.canvas.paintCommentBar(circleDatum, this.barWidthScale, this.isShowSimilarCommentsOn);
+    // Look up any active search highlight for this comment
+    const matchIndices = this.searchResult ? this.searchResult[comment.id] : null;
+    const totalReplyCount = comment.commentCount > 0
+      ? comment.commentCount
+      : comment.comments ? comment.comments.length : 0;
+
+    // Build HighlightOption correctly: { indices, color, textColor }
+    const highlightOptions: HighlightOption[] = matchIndices
+      ? [{ indices: matchIndices, color: SEARCH_HIGHLIGHT_COLOR, textColor: SEARCH_HIGHLIGHT_TEXT }]
+      : [];
 
     return {
       context: {
-        id: `comment-${comment.id}`,
+        id: circleDatum.id,
         comment,
         display: {
-          visible: forceVisibility || this.canvas.shouldDisplayCircle(circleDatum) || searchResult !== null,
+          visible: forceVisibility || circleDatum.isDisplayed,
           showLines,
-          highlightOptions: [
-            { indices: topicIndices, color: 'yellow', textColor: 'black' },
-            { indices: searchResult || [], color: 'blue', textColor: 'white' }
-          ]
+          highlightOptions
         },
-        bar: { ...barParams, width: `${barParams.width}px` },
+        bar: {
+          color: circleDatum.color,
+          width: this.barWidthScale
+            ? this.barWidthScale(comment.likeCount) + 'px'
+            : this.MIN_LIKE_BAR_WIDTH + 'px'
+        },
         circle: circleDatum,
         replies: {
           count: totalReplyCount,
-          showViewAsReplyToParentButton: showRepliesButton && this.canvas.getIsPivot(circleDatum) && comment.parentCommentId !== null,
-          showViewRepliesButton: showRepliesButton && !this.canvas.getIsPivot(circleDatum) && totalReplyCount > 0
+          showViewAsReplyToParentButton: showRepliesButton && !!comment.parentCommentId,
+          showViewRepliesButton: showRepliesButton && totalReplyCount > 0
         },
         analytics: {
           similarity: {
-            similarCommentsCount, score: similarityScore,
+            showButton: showSimilaritiesButton,
+            similarCommentsCount: 0,
             showScore: showSimilarityScore,
-            showButton: showSimilaritiesButton && similarCommentsCount > 0
+            score: similarityScore
           }
         }
       }
@@ -494,69 +606,12 @@ export class KandinskyInterfacePage implements OnInit {
   }
 
   private updateCommentContexts(): void {
-    const commentContextsToUpdate: CommentItemContext[] = [];
-    let prevVisible = 0, newVisible = 0;
-
-    if (this.isShowCommentsOn) {
-      prevVisible = this.visibleCommentsCount;
-      commentContextsToUpdate.push(this.commentContext, ...this.commentRepliesContexts);
-      this.visibleCommentsCount = this.canvas.countDisplayedCircles(
-        [this.selectedConcentricCircle.pivot, ...this.selectedConcentricCircle.pivot.children]
-      );
-      newVisible = this.visibleCommentsCount;
-    }
-
-    if (this.isShowSimilarCommentsOn) {
-      prevVisible = this.visibleSimilarCommentsCount;
-      commentContextsToUpdate.push(this.referenceCommentContext, ...this.similarCommentsContexts);
-      this.visibleSimilarCommentsCount = this.canvas.countDisplayedCircles(
-        this.similarCommentsContexts.map(c => c.context.circle)
-      );
-      newVisible = this.visibleSimilarCommentsCount;
-    }
-
-    commentContextsToUpdate.forEach(ctx => {
-      if (!ctx) return;
-      ctx.context.display.visible = this.canvas.shouldDisplayCircle(ctx.context.circle);
-    });
-
-    if (newVisible > 0 && prevVisible !== newVisible) {
-      const last = commentContextsToUpdate.filter(c => c && c.context.display.visible).pop();
-      if (last) scrollToElement(last.context.id);
-    }
-  }
-
-  protected updateDetailedCommentSectionProps(concentricCircleDatum?: ConcentricCircle): void {
-    this.selectedConcentricCircle = concentricCircleDatum;
-    this.isShowCommentsOn = !!concentricCircleDatum;
-    this.visibleCommentsCount = concentricCircleDatum ? this.canvas.countDisplayedCircles(concentricCircleDatum) : 0;
-    if (!concentricCircleDatum) {
-      this.commentContext = null;
-      this.commentRepliesContexts = [];
-    } else {
-      this.retrieve(concentricCircleDatum);
-    }
-  }
-
-  private updateSimilarityCommentsProps(referenceCircleDatum?: Circle): void {
-    if (!referenceCircleDatum) {
-      this.isShowSimilarCommentsOn = false;
-      this.visibleSimilarCommentsCount = 0;
-      this.canvas.setFocused([]);
-      return;
-    }
-    const referenceComment = this.kandinskyService.getComment(referenceCircleDatum.index);
-    const similarCommentScores = this.kandinskyService.getSimilarCommentScores(referenceComment);
-    const similarCommentIds = Object.keys(similarCommentScores);
-    const similarCommentCircles = this.canvas.getCircleData(similarCommentIds);
-    this.barWidthScale = this.buildLikeCountBarWidthScale(referenceCircleDatum, ...similarCommentCircles);
-    this.canvas.setFocused(similarCommentIds);
-    this.isShowSimilarCommentsOn = true;
-    this.retrieve([referenceCircleDatum, ...similarCommentCircles]);
-    this.similarCommentsContexts.forEach(ctx =>
-      ctx.context.analytics.similarity.score = similarCommentScores[ctx.context.comment.id]
-    );
-    this.visibleSimilarCommentsCount = this.canvas.countDisplayedCircles(similarCommentCircles);
+    if (this.isShowSimilarCommentsOn) return;
+    if (!this.selectedConcentricCircle) return;
+    const circles = this.canvas.getConcentricCircleCircles(this.selectedConcentricCircle);
+    this.visibleCommentsCount = this.canvas.countDisplayedCircles(this.selectedConcentricCircle);
+    this.commentContext = this.buildCommentItemContext(circles[0]);
+    this.commentRepliesContexts = circles.slice(1).map(c => this.buildCommentItemContext(c));
   }
 
   private buildLikeCountBarWidthScale(...circles: (ConcentricCircle | Circle)[]): d3.ScaleLinear<number, number> {
@@ -570,9 +625,9 @@ export class KandinskyInterfacePage implements OnInit {
 }
 
 // ── local types ───────────────────────────────────────────────────────────────
-type SSBReviewRow  = { commentId: string; author: string; publishTimestamp: number; score: number; tactic: string; label: string; preview: string };
-type SSBHistogramBin = { start: number; end: number; count: number };
-type SSBStats = { total: number; flagged: number; threshold: number; byTactic: Record<string,number>; byRuleTag: Record<string,number>; scoreHistogram: SSBHistogramBin[]; reviewQueue: SSBReviewRow[] };
+type ScamReviewRow    = { commentId: string; author: string; publishTimestamp: number; score: number; tactic: string; label: string; preview: string };
+type ScamHistogramBin = { start: number; end: number; count: number };
+type ScamStats = { total: number; flagged: number; threshold: number; byTactic: Record<string,number>; byRuleTag: Record<string,number>; scoreHistogram: ScamHistogramBin[]; reviewQueue: ScamReviewRow[] };
 
 type CommentItemContext = {
   context: {

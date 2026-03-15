@@ -1,3 +1,4 @@
+<!-- kandinsky-interface.page.html -->
 <ion-content fullscreen [scrollY]="false">
 
   <!-- ══════════════════════ NORMAL CANVAS (always mounted) ══════════════════ -->
@@ -8,18 +9,20 @@
     [isHighlightModeOn]="isSpectrumModeOn"
     [isFocusModeOn]="isFocusModeOn"
     (onReady)="onCanvasReady()"
-    [class.hidden-canvas]="activeTab === 'ssb'">
+    [class.hidden-canvas]="activeTab === 'scam'">
   </ksky-canvas>
 
-  <!-- ══════════════════════ SSB CANVAS ═════════════════════════════════════ -->
-  <ksky-ssb-canvas
-    [class.hidden-canvas]="activeTab !== 'ssb'"
+  <!-- ══════════════════════ SCAM CANVAS ════════════════════════════════════ -->
+  <ksky-scam-canvas
+    [class.hidden-canvas]="activeTab !== 'scam'"
     [comments]="allComments"
-    [ssbResults]="ssbResultsMap"
-    [threshold]="ssbThreshold"
-    [isActive]="activeTab === 'ssb'"
-    (nodeSelected)="onSSBNodeSelected($event)">
-  </ksky-ssb-canvas>
+    [scamResults]="scamResultsMap"
+    [threshold]="scamThreshold"
+    [tacticFilters]="activeTacticFilters"
+    [isActive]="activeTab === 'scam'"
+    (nodeSelected)="onScamNodeSelected($event)"
+    (scamCountChanged)="onScamCountChanged($event)">
+  </ksky-scam-canvas>
 
   <!-- ══════════════════════ INTERFACE OVERLAY ══════════════════════════════ -->
   <div class="interface-overlay">
@@ -31,7 +34,8 @@
           <ion-back-button defaultHref="" style="font-size: small; --icon-margin-end: '-2px';"></ion-back-button>
         </ion-buttons>
         <div class="title-container pl-3 mr-auto" *ngIf="post" (click)="fullTitle = !fullTitle">
-          <p class="mb-1" *ngIf="!fullTitle">{{ post.content.length > 44 ? (post.content | slice : 0 : 44) + '...' : post.content }}</p>
+          <p class="mb-1" *ngIf="!fullTitle">{{ post.content.length > 44 ?
+            (post.content | slice : 0 : 44) + '...' : post.content }}</p>
           <p class="mb-1" *ngIf="fullTitle">{{ post.content }}</p>
           <p class="text-muted mb-0 font-weight-light">by {{post.authorName}}</p>
         </div>
@@ -43,21 +47,29 @@
       <!-- ── TOP TAB BAR ── -->
       <div class="tab-bar-container">
         <div class="tab-bar">
+
+          <!-- Visualisation tab -->
           <button
             class="tab-btn"
             [class.active]="activeTab === 'visualisation'"
             (click)="switchTab('visualisation')">
             <ion-icon name="eye-outline"></ion-icon>
-            Visualisation
+            <span class="tab-label">Visualisation</span>
           </button>
+
+          <!-- Scam Analysis tab — disabled until analysis completes -->
           <button
-            class="tab-btn tab-btn-ssb"
-            [class.active]="activeTab === 'ssb'"
-            (click)="switchTab('ssb')">
+            class="tab-btn tab-btn-scam"
+            [class.active]="activeTab === 'scam'"
+            [class.tab-btn-scam-ready]="scamAnalysisComplete"
+            [class.tab-btn-disabled]="!scamAnalysisComplete"
+            [disabled]="!scamAnalysisComplete"
+            (click)="switchTab('scam')">
             <ion-icon name="shield-checkmark-outline"></ion-icon>
-            SSB Analysis
+            <span class="tab-label">Scam Analysis</span>
+            <!-- Spinner while loading -->
             <ion-spinner
-              *ngIf="ssbLoading"
+              *ngIf="scamLoading"
               name="crescent"
               style="
                 width: 13px;
@@ -67,8 +79,12 @@
                 --color: rgba(255,255,255,0.55);
               ">
             </ion-spinner>
-            <span class="ssb-badge" *ngIf="scamCommentIds.length">{{ scamCommentIds.length }}</span>
+            <!-- Badge showing count once complete -->
+            <span class="scam-badge" *ngIf="scamAnalysisComplete && scamNodeCount > 0">
+              {{ scamNodeCount }}
+            </span>
           </button>
+
         </div>
       </div>
 
@@ -112,27 +128,54 @@
         </div>
       </ng-container>
 
-      <!-- ── SSB tab subheader — run / stats ── -->
-      <ng-container *ngIf="activeTab === 'ssb'">
-        <div class="ssb-tab-header px-4 py-2 d-flex align-items-center" style="gap:10px">
-          <ion-button size="small" [color]="ssbResultsMap.size > 0 ? 'medium' : 'primary'" (click)="runSSBAnalysis()">
-            <ion-icon slot="start" name="play-circle-outline"></ion-icon>
-            {{ ssbResultsMap.size > 0 ? 'Re-run SSB' : 'Run SSB' }}
-          </ion-button>
-          <ion-button size="small" color="medium" (click)="openSSBInsights()" *ngIf="ssbStats">
-            <ion-icon slot="start" name="bar-chart-outline"></ion-icon>
-            Insights
-          </ion-button>
-          <ion-button size="small" color="medium" (click)="downloadSSBScamsCSV()" *ngIf="ssbStats">
-            <ion-icon slot="start" name="download-outline"></ion-icon>
-            Export CSV
-          </ion-button>
-          <span *ngIf="ssbStats" style="font-size:12px; color:#aaa;">
-            {{ ssbStats.flagged }} / {{ ssbStats.total }} flagged
-          </span>
+      <!-- ── Scam tab subheader — stats + action buttons + category filters ── -->
+      <ng-container *ngIf="activeTab === 'scam'">
+        <div class="scam-tab-header px-4 py-2">
+
+          <!-- Action row: Insights, Export CSV, count -->
+          <div class="scam-action-row">
+            <ion-button size="small" color="medium" (click)="openScamInsights()" *ngIf="scamStats">
+              <ion-icon slot="start" name="bar-chart-outline"></ion-icon>
+              <span class="tab-label">Insights</span>
+            </ion-button>
+            <ion-button size="small" color="medium" (click)="downloadScamCSV()" *ngIf="scamStats">
+              <ion-icon slot="start" name="download-outline"></ion-icon>
+              <span class="tab-label">Export CSV</span>
+            </ion-button>
+            <span *ngIf="scamStats" class="scam-count-label">
+              {{ scamNodeCount }} / {{ scamStats.total }} flagged
+            </span>
+          </div>
+
+          <!-- Category filter pills — moved from modal to here -->
+          <div class="tactic-filter-row" *ngIf="availableTactics.length">
+            <button
+              class="tactic-pill"
+              [class.active]="activeTacticFilters.length === 0"
+              (click)="clearTacticFilters()">
+              All
+            </button>
+            <button
+              *ngFor="let tactic of availableTactics"
+              class="tactic-pill"
+              [class.active]="isTacticFilterActive(tactic)"
+              (click)="toggleTacticFilter(tactic)">
+              {{ tactic.replace('SCAM_', '') }}
+            </button>
+          </div>
+
+          <!-- Retry button — only shown on failure -->
+          <div *ngIf="scamAnalysisFailed" class="scam-retry-row">
+            <ion-button size="small" color="warning" (click)="retryScamAnalysis()">
+              <ion-icon slot="start" name="refresh-outline"></ion-icon>
+              Retry Analysis
+            </ion-button>
+          </div>
+
         </div>
       </ng-container>
-    </div>
+
+    </div><!-- /interface-header -->
 
     <!-- ── Interface content (visualisation tab only) ── -->
     <div class="interface-content" *ngIf="activeTab === 'visualisation'">
@@ -143,58 +186,17 @@
             {{ ((timestamp === 0 && post) ? post.publishTimestamp : timestamp) | amDateFormat: 'D MMMM YYYY' }}
           </h5>
           <ion-text color="medium">
-            <p>{{ ((timestamp === 0 && post) ? post.publishTimestamp : timestamp) | amDateFormat: 'h:mm:ss A' }}</p>
+            <p>{{ ((timestamp === 0 && post) ?
+              post.publishTimestamp : timestamp) | amDateFormat: 'h:mm A' }}</p>
           </ion-text>
         </div>
-        <div class="timestamp-container flex-grow-1" *ngIf="isSpectrumModeOn">
-          <h6 class="font-weight-light">
-            <span>{{ spectrumStartTime | amDateFormat: 'h:mm A D MMMM YY' }}</span>
-            <span class="text-muted"> - </span>
-            <span>{{ spectrumEndTime | amDateFormat: 'h:mm A D MMMM YY' }}</span>
-          </h6>
-        </div>
       </div>
 
-      <!-- Similar comments panel -->
-      <div class="comments-container" *ngIf="isShowSimilarCommentsOn">
+      <!-- Comment panel -->
+      <div class="panel-container px-4" *ngIf="isShowCommentsOn && commentContext">
         <ion-card class="p-2 my-1">
-          <ion-list-header>
-            <ion-label>Similar Comments ({{ visibleSimilarCommentsCount }}/{{ similarCommentsContexts.length }})</ion-label>
-            <ion-button fill="clear" color="medium" size="small" (click)="selectedSimilarityReferenceCircleChange()">
-              <ion-icon name="close"></ion-icon>
-            </ion-button>
-          </ion-list-header>
           <ion-card-content class="p-0">
-            <ion-list class="comments-list p-0" #commentsList>
-              <ng-container *ngFor="let context of similarCommentsContexts"
-                [ngTemplateOutlet]="commentItem"
-                [ngTemplateOutletContext]="context">
-              </ng-container>
-              <p class="text-center p-4" *ngIf="visibleSimilarCommentsCount === 0">
-                <ion-text color="medium">No similar comments displayed.</ion-text>
-              </p>
-            </ion-list>
-          </ion-card-content>
-        </ion-card>
-      </div>
-
-      <!-- Selected comment thread panel -->
-      <div class="comments-container" *ngIf="isShowCommentsOn && !isShowSimilarCommentsOn">
-        <ion-card class="p-2 my-1">
-          <ion-list-header>
-            <ion-label>Selected Comments ({{ visibleCommentsCount }}/{{ commentRepliesContexts.length + 1 }})</ion-label>
-            <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToPrevMatch()">
-              <ion-icon name="arrow-back"></ion-icon>
-            </ion-button>
-            <ion-button *ngIf="searchQuery.length > 0 && searchResultIds.length > 0" fill="clear" color="medium" size="small" (click)="goToNextMatch()">
-              <ion-icon name="arrow-forward"></ion-icon>
-            </ion-button>
-            <ion-button fill="clear" color="medium" size="small" (click)="canvas.select()">
-              <ion-icon name="close"></ion-icon>
-            </ion-button>
-          </ion-list-header>
-          <ion-card-content class="p-0">
-            <ion-list class="comments-list p-0" #commentsList>
+            <ion-list class="comments-list p-0">
               <ng-container
                 [ngTemplateOutlet]="commentItem"
                 [ngTemplateOutletContext]="commentContext">
@@ -248,53 +250,20 @@
   <ion-item
     *ngIf="context.display.visible"
     [id]="context.id"
-    [lines]="context.display.showLines ? 'inset' : 'none'"
+    [lines]="context.display.showLines ? 'full' : 'none'"
     class="comment-item">
-    <ion-label class="ion-text-wrap" [style.padding-left]="(MAX_LIKE_BAR_WIDTH + 12) + 'px'">
-      <div class="like-bar" [style.width]="context.bar.width" [style.background-color]="context.bar.color"></div>
-      <div class="d-flex justify-content-between mb-1">
-        <h3 class="d-inline">{{ context.comment.authorName }}</h3>
-        <small class="text-muted">{{ context.comment.publishTimestamp | amDateFormat : 'D MMM YYYY H:mm A' }}</small>
-      </div>
-      <p [innerHTML]="context.comment.content | highlight : context.display.highlightOptions | sanitizeHtml"></p>
-      <div class="d-flex justify-content-between">
-        <div class="buttons-container">
-          <ion-button size="small" fill="clear" color="medium">
-            {{ context.comment.likeCount }}
-            <ion-icon slot="end" name="thumbs-up" mode="md"></ion-icon>
-          </ion-button>
-          <ion-button size="small" fill="clear" color="medium">
-            {{ context.replies.count }}
-            <ion-icon slot="end" name="chatboxes"></ion-icon>
-          </ion-button>
-          <ion-button size="small" fill="clear" color="medium" (click)="canvas.zoomTo(context.circle.concentricCircleId)">
-            <ion-icon slot="icon-only" name="search"></ion-icon>
-          </ion-button>
-        </div>
-        <div class="similarity-container">
-          <ion-button size="small" fill="clear" color="primary"
-            *ngIf="context.analytics.similarity.showButton"
-            (click)="selectedSimilarityReferenceCircleChange(context.circle)">
-            See similar comments ({{ context.analytics.similarity.similarCommentsCount }})
-          </ion-button>
-          <ion-button size="small" fill="clear" color="medium"
-            *ngIf="context.analytics.similarity.showScore">
-            Similarity: {{ (context.analytics.similarity.score * 100) | number : '1.2-2' }}%
-          </ion-button>
-        </div>
-      </div>
-      <div class="reply-button-container">
-        <ion-button size="small" fill="clear" color="primary"
-          *ngIf="context.replies.showViewAsReplyToParentButton"
-          (click)="selectConcentricCircle(context.comment.parentCommentId, context.comment.id)">
-          View as reply to {{ context.comment.parentAuthorName }}
-        </ion-button>
-        <ion-button size="small" fill="clear" color="primary"
-          *ngIf="context.replies.showViewRepliesButton"
-          (click)="selectConcentricCircle(context.comment.id, context.comment.id)">
-          View replies
-        </ion-button>
-      </div>
+    <div slot="start" class="like-bar" [style.width]="context.bar.width" [style.background]="context.bar.color"></div>
+    <ion-label class="ion-text-wrap">
+      <p><b>{{ context.comment.authorName }}</b></p>
+      <p [innerHTML]="context.comment.content | highlight: context.display.highlightOptions | sanitizeHtml"></p>
+      <p *ngIf="context.analytics.similarity.showScore" class="text-muted">
+        Similarity: {{ context.analytics.similarity.score | number:'1.2-2' }}
+      </p>
     </ion-label>
+    <div slot="end" class="similarity-container" *ngIf="context.analytics.similarity.showButton">
+      <ion-button fill="clear" color="medium" size="small">
+        <ion-icon name="git-compare-outline"></ion-icon>
+      </ion-button>
+    </div>
   </ion-item>
 </ng-template>
